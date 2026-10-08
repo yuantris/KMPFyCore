@@ -1,164 +1,147 @@
+mod lexer;
+mod parser;
+
 use core_common::{CoreError, CoreResult};
 
 #[derive(Debug, Clone, PartialEq)]
-enum Token {
-    Number(f64), Identifier(String), Plus, Minus, Star, Slash, Percent, Caret,
-    LeftParen, RightParen, End,
+pub enum Expr {
+    Number(f64),
+    Variable,
+    Constant(f64),
+    Unary { op: UnaryOp, expr: Box<Expr> },
+    Binary { op: BinaryOp, left: Box<Expr>, right: Box<Expr> },
+    Function { function: Function, expr: Box<Expr> },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOp { Plus, Minus }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinaryOp { Add, Subtract, Multiply, Divide, Modulo, Power }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Function {
+    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil,
+}
+
+impl Expr {
+    pub fn eval_x(&self, x: f64) -> f64 {
+        match self {
+            Self::Number(v) | Self::Constant(v) => *v,
+            Self::Variable => x,
+            Self::Unary { op, expr } => match op {
+                UnaryOp::Plus => expr.eval_x(x),
+                UnaryOp::Minus => -expr.eval_x(x),
+            },
+            Self::Binary { op, left, right } => {
+                let a = left.eval_x(x);
+                let b = right.eval_x(x);
+                match op {
+                    BinaryOp::Add => a + b,
+                    BinaryOp::Subtract => a - b,
+                    BinaryOp::Multiply => a * b,
+                    BinaryOp::Divide => a / b,
+                    BinaryOp::Modulo => a % b,
+                    BinaryOp::Power => a.powf(b),
+                }
+            }
+            Self::Function { function, expr } => {
+                let v = expr.eval_x(x);
+                match function {
+                    Function::Sin => v.sin(),
+                    Function::Cos => v.cos(),
+                    Function::Tan => v.tan(),
+                    Function::Asin => v.asin(),
+                    Function::Acos => v.acos(),
+                    Function::Atan => v.atan(),
+                    Function::Sqrt => v.sqrt(),
+                    Function::Abs => v.abs(),
+                    Function::Ln => v.ln(),
+                    Function::Log => v.log10(),
+                    Function::Exp => v.exp(),
+                    Function::Floor => v.floor(),
+                    Function::Ceil => v.ceil(),
+                }
+            }
+        }
+    }
+
+    pub fn contains_variable(&self) -> bool {
+        match self {
+            Self::Variable => true,
+            Self::Number(_) | Self::Constant(_) => false,
+            Self::Unary { expr, .. } | Self::Function { expr, .. } => expr.contains_variable(),
+            Self::Binary { left, right, .. } => left.contains_variable() || right.contains_variable(),
+        }
+    }
+
+    pub fn eval_constant(&self) -> CoreResult<f64> {
+        if self.contains_variable() {
+            return Err(CoreError::InvalidArgument("expression contains variable x".into()));
+        }
+        let value = self.eval_x(0.0);
+        if value.is_finite() {
+            Ok(value)
+        } else {
+            Err(CoreError::InvalidArgument("expression result is not finite".into()))
+        }
+    }
 }
 
 pub struct Expression;
 
 impl Expression {
+    pub fn compile(input: &str) -> CoreResult<Expr> {
+        let input = input.trim();
+        if input.is_empty() {
+            return Err(CoreError::Parse("expression is empty".into()));
+        }
+        parser::parse(input)
+    }
+
     pub fn eval(input: &str) -> CoreResult<f64> {
-        let mut parser = Parser::new(tokenize(input)?);
-        let value = parser.parse_expression()?;
-        if parser.peek() != &Token::End {
-            return Err(CoreError::Parse("unexpected token".into()));
-        }
-        Ok(value)
+        Self::compile(input)?.eval_constant()
+    }
+
+    pub fn eval_x(input: &str, x: f64) -> CoreResult<f64> {
+        Self::compile(input).map(|expr| expr.eval_x(x))
     }
 }
 
-fn tokenize(input: &str) -> CoreResult<Vec<Token>> {
-    let chars: Vec<char> = input.chars().collect();
-    let mut i = 0;
-    let mut tokens = Vec::new();
-    while i < chars.len() {
-        let c = chars[i];
-        if c.is_whitespace() { i += 1; continue; }
-        if c.is_ascii_digit() || c == '.' {
-            let start = i;
-            i += 1;
-            while i < chars.len() && (chars[i].is_ascii_digit() || matches!(chars[i], '.' | 'e' | 'E')) {
-                i += 1;
-            }
-            if i < chars.len() && matches!(chars[i], '+' | '-') && i > start && matches!(chars[i - 1], 'e' | 'E') {
-                i += 1;
-                while i < chars.len() && chars[i].is_ascii_digit() { i += 1; }
-            }
-            let text: String = chars[start..i].iter().collect();
-            let number = text.parse::<f64>().map_err(|_| CoreError::Parse(format!("invalid number: {text}")))?;
-            tokens.push(Token::Number(number));
-            continue;
-        }
-        if c.is_ascii_alphabetic() || c == '_' {
-            let start = i;
-            i += 1;
-            while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') { i += 1; }
-            tokens.push(Token::Identifier(chars[start..i].iter().collect::<String>().to_lowercase()));
-            continue;
-        }
-        let token = match c {
-            '+' => Token::Plus, '-' => Token::Minus, '*' => Token::Star, '/' => Token::Slash,
-            '%' => Token::Percent, '^' => Token::Caret, '(' => Token::LeftParen, ')' => Token::RightParen,
-            _ => return Err(CoreError::Parse(format!("unexpected character: {c}"))),
-        };
-        tokens.push(token);
-        i += 1;
-    }
-    tokens.push(Token::End);
-    Ok(tokens)
-}
-
-struct Parser { tokens: Vec<Token>, index: usize }
-
-impl Parser {
-    fn new(tokens: Vec<Token>) -> Self { Self { tokens, index: 0 } }
-    fn peek(&self) -> &Token { &self.tokens[self.index] }
-    fn consume(&mut self) -> Token { let t = self.tokens[self.index].clone(); self.index += 1; t }
-
-    fn parse_expression(&mut self) -> CoreResult<f64> {
-        let mut value = self.parse_term()?;
-        loop {
-            match self.peek() {
-                Token::Plus => { self.consume(); value += self.parse_term()?; }
-                Token::Minus => { self.consume(); value -= self.parse_term()?; }
-                _ => break,
-            }
-        }
-        Ok(value)
-    }
-
-    fn parse_term(&mut self) -> CoreResult<f64> {
-        let mut value = self.parse_power()?;
-        loop {
-            match self.peek() {
-                Token::Star => { self.consume(); value *= self.parse_power()?; }
-                Token::Slash => {
-                    self.consume(); let rhs = self.parse_power()?;
-                    if rhs == 0.0 { return Err(CoreError::InvalidArgument("division by zero".into())); }
-                    value /= rhs;
-                }
-                Token::Percent => {
-                    self.consume(); let rhs = self.parse_power()?;
-                    if rhs == 0.0 { return Err(CoreError::InvalidArgument("modulo by zero".into())); }
-                    value %= rhs;
-                }
-                _ => break,
-            }
-        }
-        Ok(value)
-    }
-
-    fn parse_power(&mut self) -> CoreResult<f64> {
-        let base = self.parse_unary()?;
-        if self.peek() == &Token::Caret {
-            self.consume();
-            return Ok(base.powf(self.parse_power()?));
-        }
-        Ok(base)
-    }
-
-    fn parse_unary(&mut self) -> CoreResult<f64> {
-        match self.peek() {
-            Token::Plus => { self.consume(); self.parse_unary() }
-            Token::Minus => { self.consume(); Ok(-self.parse_unary()?) }
-            _ => self.parse_primary(),
-        }
-    }
-
-    fn parse_primary(&mut self) -> CoreResult<f64> {
-        match self.consume() {
-            Token::Number(v) => Ok(v),
-            Token::Identifier(name) => {
-                if self.peek() == &Token::LeftParen {
-                    self.consume();
-                    let value = self.parse_expression()?;
-                    if self.peek() != &Token::RightParen { return Err(CoreError::Parse("expected ')'".into())); }
-                    self.consume();
-                    apply_function(&name, value)
-                } else {
-                    match name.as_str() {
-                        "pi" => Ok(std::f64::consts::PI),
-                        "e" => Ok(std::f64::consts::E),
-                        _ => Err(CoreError::Parse(format!("unknown identifier: {name}"))),
-                    }
-                }
-            }
-            Token::LeftParen => {
-                let value = self.parse_expression()?;
-                if self.peek() != &Token::RightParen { return Err(CoreError::Parse("expected ')'".into())); }
-                self.consume();
-                Ok(value)
-            }
-            _ => Err(CoreError::Parse("expected value".into())),
-        }
-    }
-}
-
-fn apply_function(name: &str, value: f64) -> CoreResult<f64> {
-    Ok(match name {
-        "sin" => value.sin(), "cos" => value.cos(), "tan" => value.tan(),
-        "sqrt" => value.sqrt(), "abs" => value.abs(), "ln" => value.ln(), "log" => value.log10(),
-        _ => return Err(CoreError::Parse(format!("unknown function: {name}"))),
-    })
-}
+pub use parser::parse;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test] fn arithmetic() { assert_eq!(Expression::eval("1 + 2 * 3").unwrap(), 7.0); }
-    #[test] fn parentheses() { assert_eq!(Expression::eval("(1 + 2) * 3").unwrap(), 9.0); }
-    #[test] fn function() { assert_eq!(Expression::eval("sqrt(9) + abs(-2)").unwrap(), 5.0); }
-    #[test] fn constants() { assert!((Expression::eval("pi * 2").unwrap() - std::f64::consts::PI * 2.0).abs() < 0.00001); }
+
+    fn close(a: f64, b: f64) {
+        assert!((a - b).abs() < 1e-10, "{a} != {b}");
+    }
+
+    #[test]
+    fn arithmetic() {
+        close(Expression::eval("1 + 2 * 3").unwrap(), 7.0);
+        close(Expression::eval("(1 + 2) * 3").unwrap(), 9.0);
+        close(Expression::eval("2^3^2").unwrap(), 512.0);
+        close(Expression::eval("-2^2").unwrap(), -4.0);
+    }
+
+    #[test]
+    fn implicit_multiplication() {
+        close(Expression::eval_x("2x + 2(x + 1)", 3.0).unwrap(), 14.0);
+        close(Expression::eval_x("(x + 1)(x - 1)", 3.0).unwrap(), 8.0);
+        close(Expression::eval_x("2sin(x)", std::f64::consts::PI / 2.0).unwrap(), 2.0);
+    }
+
+    #[test]
+    fn functions() {
+        close(Expression::eval("sqrt(9) + abs(-2) + pi - pi").unwrap(), 5.0);
+        close(Expression::eval("log(100) + ln(exp(1))").unwrap(), 3.0);
+    }
+
+    #[test]
+    fn variable() {
+        close(Expression::eval_x("x^2 + 1", 3.0).unwrap(), 10.0);
+        assert!(Expression::eval("x + 1").is_err());
+    }
 }
