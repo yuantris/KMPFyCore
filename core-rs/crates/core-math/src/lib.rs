@@ -304,9 +304,19 @@ mod tests {
     #[test]
     fn scientific_extensions() {
         close(Expression::eval("factorial(5)").unwrap(), 120.0);
+        close(Expression::eval("5!").unwrap(), 120.0);
+        close(Expression::eval("50%").unwrap(), 0.5);
+        close(Expression::eval("100 + 20%").unwrap(), 120.0);
         close(Expression::eval("fact(6)").unwrap(), 720.0);
         close(Expression::eval("inv(4)").unwrap(), 0.25);
         assert!(Expression::eval("factorial(-1)").is_err());
+    }
+
+    #[test]
+    #[test]
+    fn angle_modes() {
+        close(Expression::eval_with_angle("sin(30)", AngleMode::Deg).unwrap(), 0.5);
+        close(Expression::eval_with_angle("asin(0.5)", AngleMode::Deg).unwrap(), 30.0);
     }
 
     #[test]
