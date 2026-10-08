@@ -26,11 +26,14 @@ private sealed interface CalculatorKey {
     data object Delete : CalculatorKey
     data object Equals : CalculatorKey
     data object ToggleSign : CalculatorKey
+    data object Square : CalculatorKey
+    data object Reciprocal : CalculatorKey
 }
 
 @Composable
 internal fun CalculatorPanel(backdrop: LayerBackdrop) {
     var mode by remember { mutableStateOf(CalculatorMode.Basic) }
+    var angleMode by remember { mutableStateOf(CalculatorAngleMode.Rad) }
     var expression by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<CalculationResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -57,7 +60,7 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
             evaluating = true
             error = null
             runCatching {
-                withContext(Dispatchers.Default) { CoreRsPlatform.calculate(expression, mode) }
+                withContext(Dispatchers.Default) { CoreRsPlatform.calculate(autoCloseParentheses(expression), mode, angleMode) }
             }.onSuccess { value ->
                 result = value
                 val display = value.displayText()
@@ -99,7 +102,12 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
                     modifier = Modifier.weight(1f),
                 )
             } else {
-                CalculatorDisplay(expression, result, error, evaluating, Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (mode == CalculatorMode.Scientific) {
+                        LiquidButton(onClick = { angleMode = if (angleMode == CalculatorAngleMode.Rad) CalculatorAngleMode.Deg else CalculatorAngleMode.Rad }, backdrop = backdrop) { Text(if (angleMode == CalculatorAngleMode.Rad) "RAD" else "DEG") }
+                    }
+                }
+                CalculatorDisplay(expression, result, error, evaluating, Modifier.weight(1f), onExpressionChange = ::setExpression)
                 if (mode != CalculatorMode.Fraction) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf("MC", "MR", "M+", "M-").forEach { action ->
@@ -120,6 +128,8 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
                         CalculatorKey.Delete -> if (expression.isNotEmpty()) setExpression(expression.dropLast(1))
                         CalculatorKey.Equals -> evaluate()
                         CalculatorKey.ToggleSign -> if (expression.isNotBlank()) setExpression("-(" + expression + ")")
+                        CalculatorKey.Square -> if (expression.isNotBlank()) append("^2")
+                        CalculatorKey.Reciprocal -> if (expression.isNotBlank()) setExpression("inv(" + expression + ")")
                         is CalculatorKey.Text -> append(key.insert)
                     }
                 }
@@ -135,9 +145,10 @@ private fun CalculatorDisplay(
     error: String?,
     evaluating: Boolean,
     modifier: Modifier,
+    onExpressionChange: (String) -> Unit,
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.Bottom, horizontalAlignment = Alignment.End) {
-        Text(expression.ifBlank { "0" }, style = MaterialTheme.typography.headlineSmall, maxLines = 3)
+        OutlinedTextField(value = expression, onValueChange = onExpressionChange, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4, placeholder = { Text("输入表达式") })
         Spacer(Modifier.height(8.dp))
         when {
             evaluating -> CircularProgressIndicator(Modifier.size(24.dp))
@@ -236,7 +247,7 @@ private fun calculatorKeys(mode: CalculatorMode): List<List<CalculatorKey>> {
     }
     return listOf(
         listOf(t("sin("), t("cos("), t("tan("), t("√", "sqrt("), t("xʸ", "^")),
-        listOf(t("x²", "^2"), t("1/x", "inv("), t("fact(", "factorial("), t("ln("), t("log(")),
+        listOf(CalculatorKey.Square, CalculatorKey.Reciprocal, t("!"), t("ln("), t("log(")),
         listOf(t("asin("), t("acos("), t("atan("), t("ln("), t("log(")),
         listOf(t("abs("), t("exp("), t("floor("), t("ceil("), t("π", "pi")),
         listOf(t("e"), t("("), t(")"), t("%"), t("÷", "/")),
@@ -252,7 +263,15 @@ private fun CalculatorKey.label(): String = when (this) {
     CalculatorKey.Delete -> "DEL"
     CalculatorKey.Equals -> "="
     CalculatorKey.ToggleSign -> "±"
+    CalculatorKey.Square -> "x²"
+    CalculatorKey.Reciprocal -> "1/x"
     is CalculatorKey.Text -> label
+}
+
+private fun autoCloseParentheses(input: String): String {
+    var balance = 0
+    input.forEach { if (it == '(') balance++ else if (it == ')' && balance > 0) balance-- }
+    return input + ")".repeat(balance)
 }
 
 private fun CalculationResult.displayText(): String =
