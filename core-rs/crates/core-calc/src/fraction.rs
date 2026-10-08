@@ -22,7 +22,7 @@ impl Rational {
             self.denominator.checked_mul(other.denominator).ok_or_else(|| CoreError::InvalidArgument("fraction overflow".into()))?,
         )
     }
-    fn sub(self, other: Self) -> CoreResult<Self> { self.add(Self::new(-other.numerator, other.denominator)?) }
+    fn sub(self, other: Self) -> CoreResult<Self> { self.add(Self::new(other.numerator.checked_neg().ok_or_else(|| CoreError::InvalidArgument("fraction overflow".into()))?, other.denominator)?) }
     fn mul(self, other: Self) -> CoreResult<Self> {
         Self::new(
             self.numerator.checked_mul(other.numerator).ok_or_else(|| CoreError::InvalidArgument("fraction overflow".into()))?,
@@ -50,7 +50,7 @@ pub fn evaluate(input: &str) -> CoreResult<Rational> {
 
 struct Parser<'a> { chars: std::iter::Peekable<std::str::Chars<'a>> }
 impl<'a> Parser<'a> {
-    fn skip_ws(&mut self) { while self.chars.peek().is_some_and(|c| c.is_whitespace()) { self.chars.next(); } }
+    fn skip_ws(&mut self) { while self.chars.peek().is_some_and(|c| c.is_whitespace()) { let _ = self.chars.next(); } }
     fn parse_add_sub(&mut self) -> CoreResult<Rational> {
         let mut value = self.parse_mul_div()?;
         loop {
