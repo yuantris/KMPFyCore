@@ -155,7 +155,7 @@ private fun CalculatorDisplay(
             error != null -> Text(error, color = MaterialTheme.colorScheme.error)
             result != null -> {
                 if (result.type == "rational" && result.numerator != null && result.denominator != null) {
-                    Text(result.numerator.toString() + "/" + result.denominator, style = MaterialTheme.typography.displaySmall)
+                    RationalDisplay(result.numerator, result.denominator)
                     Text("≈ " + result.value.toDisplayNumber(), style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Text(result.value.toDisplayNumber(), style = MaterialTheme.typography.displaySmall)
@@ -163,6 +163,23 @@ private fun CalculatorDisplay(
             }
             else -> Text("0", style = MaterialTheme.typography.displaySmall)
         }
+    }
+}
+
+@Composable
+private fun RationalDisplay(numerator: Long, denominator: Long) {
+    val negative = numerator < 0
+    val absolute = kotlin.math.abs(numerator)
+    val whole = absolute / denominator
+    val remainder = absolute % denominator
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (negative) Text("−", style = MaterialTheme.typography.displaySmall)
+        if (whole != 0L) Text(whole.toString(), style = MaterialTheme.typography.displaySmall)
+        if (remainder != 0L) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(remainder.toString(), style = MaterialTheme.typography.titleLarge)
+            HorizontalDivider(Modifier.width(42.dp))
+            Text(denominator.toString(), style = MaterialTheme.typography.titleLarge)
+        } else if (whole == 0L) Text("0", style = MaterialTheme.typography.displaySmall)
     }
 }
 
