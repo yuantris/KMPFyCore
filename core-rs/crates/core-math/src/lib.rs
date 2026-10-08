@@ -97,6 +97,79 @@ impl Expr {
     }
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Rational {
+    pub numerator: i64,
+    pub denominator: i64,
+}
+
+impl Rational {
+    pub fn new(numerator: i64, denominator: i64) -> CoreResult<Self> {
+        if denominator == 0 {
+            return Err(CoreError::InvalidArgument("rational denominator must not be zero".into()));
+        }
+        let (n, d) = if denominator < 0 {
+            (
+                numerator.checked_neg().ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+                denominator.checked_neg().ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+            )
+        } else { (numerator, denominator) };
+        let g = gcd_i64(n.unsigned_abs(), d.unsigned_abs());
+        Ok(Self { numerator: n / g as i64, denominator: d / g as i64 })
+    }
+
+    pub const fn integer(value: i64) -> Self {
+        Self { numerator: value, denominator: 1 }
+    }
+
+    pub fn to_f64(self) -> f64 {
+        self.numerator as f64 / self.denominator as f64
+    }
+
+    pub fn add(self, other: Self) -> CoreResult<Self> {
+        let n = self.numerator.checked_mul(other.denominator)
+            .and_then(|a| other.numerator.checked_mul(self.denominator).and_then(|b| a.checked_add(b)))
+            .ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?;
+        let d = self.denominator.checked_mul(other.denominator)
+            .ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?;
+        Self::new(n, d)
+    }
+
+    pub fn sub(self, other: Self) -> CoreResult<Self> {
+        Self::new(
+            other.numerator.checked_neg().ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?
+                .checked_mul(self.denominator)
+                .and_then(|b| self.numerator.checked_mul(other.denominator).and_then(|a| a.checked_add(b)))
+                .ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+            self.denominator.checked_mul(other.denominator)
+                .ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+        )
+    }
+
+    pub fn mul(self, other: Self) -> CoreResult<Self> {
+        Self::new(
+            self.numerator.checked_mul(other.numerator).ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+            self.denominator.checked_mul(other.denominator).ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+        )
+    }
+
+    pub fn div(self, other: Self) -> CoreResult<Self> {
+        if other.numerator == 0 {
+            return Err(CoreError::InvalidArgument("division by zero".into()));
+        }
+        Self::new(
+            self.numerator.checked_mul(other.denominator).ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+            self.denominator.checked_mul(other.numerator).ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
+        )
+    }
+}
+
+fn gcd_i64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 { let r = a % b; a = b; b = r; }
+    a.max(1)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Variable {
     X,
