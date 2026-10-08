@@ -10,14 +10,40 @@ internal object CoreRsNative {
             ?.takeIf { it.isNotBlank() }
             ?.let(::File)
 
-        if (explicitPath != null) {
-            require(explicitPath.isFile) {
-                "Core-RS native library does not exist: ${explicitPath.absolutePath}"
+        val packagedPath = System.getProperty("compose.application.resources.dir")
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::File)
+            ?.resolve(platformDirectory())
+            ?.resolve(nativeFileName())
+
+        when {
+            explicitPath != null -> {
+                require(explicitPath.isFile) { "Core-RS native library does not exist: ${explicitPath.absolutePath}" }
+                System.load(explicitPath.absolutePath)
             }
-            System.load(explicitPath.absolutePath)
-        } else {
-            System.loadLibrary(LIBRARY_NAME)
+            packagedPath?.isFile == true -> System.load(packagedPath.absolutePath)
+            else -> System.loadLibrary(LIBRARY_NAME)
         }
+    }
+
+    private fun platformDirectory(): String {
+        val os = System.getProperty("os.name").lowercase()
+        val osName = when {
+            "windows" in os -> "windows"
+            "mac" in os -> "macos"
+            else -> "linux"
+        }
+        val arch = when (System.getProperty("os.arch").lowercase()) {
+            "aarch64", "arm64" -> "arm64"
+            else -> "x64"
+        }
+        return "$osName-$arch"
+    }
+
+    private fun nativeFileName(): String = when {
+        System.getProperty("os.name").contains("Windows", true) -> "core_rs_jvm.dll"
+        System.getProperty("os.name").contains("Mac", true) -> "libcore_rs_jvm.dylib"
+        else -> "libcore_rs_jvm.so"
     }
 
     @JvmStatic external fun nativeExpressionEval(expression: String): Double
