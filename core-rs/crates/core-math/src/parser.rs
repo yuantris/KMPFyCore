@@ -49,7 +49,7 @@ impl Parser {
                     self.consume(); let argument = self.parse_expression()?;
                     if self.peek() != &Token::RightParen { return Err(CoreError::Parse(format!("expected ')' after {name}"))); }
                     self.consume(); Ok(Expr::Function { function: parse_function(&name)?, expr: Box::new(argument) })
-                } else { match name.as_str() { "x" => Ok(Expr::Variable), "pi" => Ok(Expr::Constant(std::f64::consts::PI)), "e" => Ok(Expr::Constant(std::f64::consts::E)), _ => Err(CoreError::Parse(format!("unknown identifier: {name}"))) } }
+                } else { match name.as_str() { "x" => Ok(Expr::Variable), "y" => Ok(Expr::VariableY), "t" => Ok(Expr::VariableT), "pi" => Ok(Expr::Constant(std::f64::consts::PI)), "e" => Ok(Expr::Constant(std::f64::consts::E)), _ => Err(CoreError::Parse(format!("unknown identifier: {name}"))) } }
             }
             Token::LeftParen => { let expr = self.parse_expression()?; if self.peek() != &Token::RightParen { return Err(CoreError::Parse("expected ')'".into())); } self.consume(); Ok(expr) }
             token => Err(CoreError::Parse(format!("expected value, found {token:?}"))),
