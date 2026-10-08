@@ -21,13 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.core.fy.kmp.core.CoreRsPlatform
-import com.core.fy.kmp.core.CoreSearch
-import com.core.fy.kmp.core.GraphSegment
-import com.core.fy.kmp.core.SearchResult
-import com.core.fy.kmp.core.ZipEntryInfo
+import com.core.fy.kmp.components.LiquidButton
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.floor
 import kotlin.math.log10
@@ -63,19 +58,16 @@ fun CorePlaygroundContent() {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            LiquidGlassPill(backdrop, Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 CoreTab.entries.forEachIndexed { index, item ->
                     LiquidButton(
                         onClick = { tabIndex = index },
+                        backdrop = backdrop,
                         modifier = Modifier.weight(1f),
-                    ) {
-                        Text(
-                            item.symbol + "  " + item.title,
-                            color = if (index == tabIndex) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                        isInteractive = index == tabIndex,
+                    ) { Text(item.symbol + "  " + item.title) }
                 }
+            }
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -110,7 +102,6 @@ private fun MathPanel(backdrop: LayerBackdrop) {
     var x by remember { mutableDoubleStateOf(2.0) }
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -130,22 +121,18 @@ private fun MathPanel(backdrop: LayerBackdrop) {
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         LiquidButton(onClick = {
-                            scope.launch {
                                 error = null
                                 runCatching {
                                     withContext(Dispatchers.Default) { CoreRsPlatform.eval(expression) }
                                 }.onSuccess { result = "constant = " + it }
                                     .onFailure { error = it.message }
-                            }
                         }, backdrop = backdrop) { Text("常量求值") }
                         LiquidButton(onClick = {
-                            scope.launch {
                                 error = null
                                 runCatching {
                                     withContext(Dispatchers.Default) { CoreRsPlatform.eval(expression, x) }
                                 }.onSuccess { result = "f(" + x + ") = " + it }
                                     .onFailure { error = it.message }
-                            }
                         }, backdrop = backdrop) { Text("f(x)") }
                     }
                     OutlinedTextField(
@@ -434,8 +421,8 @@ private fun BinaryPanel(backdrop: LayerBackdrop) {
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LiquidButton(onClick = ::ensureSampleZip) { Text("生成示例 ZIP") }
-                    LiquidButton(onClick = { path = sampleZip.absolutePath }, backdrop = backdrop) { Text("使用示例") }
+                    LiquidButton(onClick = ::ensureSampleZip, backdrop = backdrop) { Text("生成示例 ZIP") }
+                    LiquidButton(onClick = { path = sampleZipPath }, backdrop = backdrop) { Text("使用示例") }
                 }
             }
             item {
