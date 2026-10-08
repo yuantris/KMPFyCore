@@ -7,6 +7,7 @@ members = [
     "crates/core-graph",
     "crates/core-binary",
     "bindings/android",
+    "bindings/jvm",
     "tools/core-rs-example",
 ]
 
