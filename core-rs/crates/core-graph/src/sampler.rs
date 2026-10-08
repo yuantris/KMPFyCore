@@ -257,3 +257,135 @@ mod tests {
         assert!(sample_checked(&Expression::compile("x").unwrap(), &config()).is_err());
     }
 }
+
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GraphMode {
+    Cartesian,
+    Polar,
+    Parametric,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ParametricConfig {
+    pub min_t: f64,
+    pub max_t: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GraphAnalysis {
+    pub zeroes: Vec<GraphPoint>,
+    pub extrema: Vec<GraphPoint>,
+}
+
+pub fn sample_polar(expr: &Expr, config: &GraphConfig, min_t: f64, max_t: f64) -> CoreResult<GraphResult> {
+    sample_parametric_pair(expr, &Expr::Number(0.0), config, min_t, max_t, true)
+}
+
+pub fn sample_parametric(x_expr: &Expr, y_expr: &Expr, config: &GraphConfig, min_t: f64, max_t: f64) -> CoreResult<GraphResult> {
+    sample_parametric_pair(x_expr, y_expr, config, min_t, max_t, false)
+}
+
+fn sample_parametric_pair(
+    first: &Expr,
+    second: &Expr,
+    config: &GraphConfig,
+    min_t: f64,
+    max_t: f64,
+    polar: bool,
+) -> CoreResult<GraphResult> {
+    config.validate()?;
+    if !min_t.is_finite() || !max_t.is_finite() || min_t >= max_t {
+        return Err(CoreError::InvalidArgument("invalid parameter range".into()));
+    }
+    let count = config.samples.max(64);
+    let step = (max_t - min_t) / (count - 1) as f64;
+    let mut points = Vec::with_capacity(count);
+    let mut evaluated_points = 0usize;
+    let mut segments = Vec::new();
+    let mut current = Vec::new();
+
+    for i in 0..count {
+        let t = if i + 1 == count { max_t } else { min_t + step * i as f64 };
+        evaluated_points += 1;
+        let (x, y) = if polar {
+            let r = first.eval_vars(t, 0.0, t);
+            (r * t.cos(), r * t.sin())
+        } else {
+            (first.eval_vars(0.0, 0.0, t), second.eval_vars(0.0, 0.0, t))
+        };
+        let point = if x.is_finite() && y.is_finite() {
+            Some(GraphPoint { x, y })
+        } else {
+            None
+        };
+        match point {
+            Some(p) => {
+                if let Some(prev) = points.last().copied() {
+                    let sx = ((p.x - prev.x) / (config.max_x - config.min_x)) * config.pixel_width as f64;
+                    let sy = ((p.y - prev.y) / (config.max_y - config.min_y)) * config.pixel_height as f64;
+                    if (sx * sx + sy * sy).sqrt() > config.max_screen_jump {
+                        flush(&mut segments, &mut current);
+                    }
+                }
+                current.push(p);
+                points.push(p);
+            }
+            None => {
+                flush(&mut segments, &mut current);
+                points.clear();
+            }
+        }
+    }
+    flush(&mut segments, &mut current);
+    Ok(GraphResult { segments, evaluated_points, discontinuities: 0 })
+}
+
+pub fn analyze(expr: &Expr, config: &GraphConfig) -> CoreResult<GraphAnalysis> {
+    config.validate()?;
+    let n = config.samples.max(256);
+    let step = (config.max_x - config.min_x) / (n - 1) as f64;
+    let mut values: Vec<(f64, f64)> = Vec::with_capacity(n);
+    for i in 0..n {
+        let x = if i + 1 == n { config.max_x } else { config.min_x + step * i as f64 };
+        let y = expr.eval_x(x);
+        if y.is_finite() { values.push((x, y)); }
+    }
+
+    let mut zeroes = Vec::new();
+    let mut extrema = Vec::new();
+    for pair in values.windows(2) {
+        let (x1, y1) = pair[0];
+        let (x2, y2) = pair[1];
+        if y1 == 0.0 {
+            zeroes.push(GraphPoint { x: x1, y: 0.0 });
+        } else if y1.signum() != y2.signum() {
+            let mut lo = x1;
+            let mut hi = x2;
+            for _ in 0..48 {
+                let mid = (lo + hi) * 0.5;
+                let ym = expr.eval_x(mid);
+                if !ym.is_finite() { break; }
+                if y1.signum() == ym.signum() { lo = mid; } else { hi = mid; }
+            }
+            let root = (lo + hi) * 0.5;
+            zeroes.push(GraphPoint { x: root, y: 0.0 });
+        }
+    }
+    for pair in values.windows(3) {
+        let (x0, y0) = pair[0];
+        let (x1, y1) = pair[1];
+        let (x2, y2) = pair[2];
+        let d1 = y1 - y0;
+        let d2 = y2 - y1;
+        if d1.signum() != 0.0 && d1.signum() != d2.signum() && y1.is_finite() {
+            extrema.push(GraphPoint { x: x1, y: y1 });
+        }
+        let _ = (x0, x2);
+    }
+    zeroes.sort_by(|a,b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
+    zeroes.dedup_by(|a,b| (a.x-b.x).abs() < step * 2.0);
+    extrema.sort_by(|a,b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
+    extrema.dedup_by(|a,b| (a.x-b.x).abs() < step * 2.0);
+    Ok(GraphAnalysis { zeroes, extrema })
+}
