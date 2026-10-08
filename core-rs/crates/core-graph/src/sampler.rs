@@ -298,47 +298,124 @@ fn sample_parametric_pair(
     if !min_t.is_finite() || !max_t.is_finite() || min_t >= max_t {
         return Err(CoreError::InvalidArgument("invalid parameter range".into()));
     }
-    let count = config.samples.max(64);
-    let step = (max_t - min_t) / (count - 1) as f64;
-    let mut points = Vec::with_capacity(count);
-    let mut evaluated_points = 0usize;
+
+    let base_count = config.samples.max(64).min(20_000);
+    let step = (max_t - min_t) / (base_count - 1) as f64;
+    let mut state = ParamState {
+        first,
+        second,
+        config,
+        polar,
+        evaluated_points: 0,
+    };
     let mut segments = Vec::new();
     let mut current = Vec::new();
 
-    for i in 0..count {
-        let t = if i + 1 == count { max_t } else { min_t + step * i as f64 };
-        evaluated_points += 1;
-        let (x, y) = if polar {
-            let r = first.eval_vars(t, 0.0, t);
-            (r * t.cos(), r * t.sin())
-        } else {
-            (first.eval_vars(0.0, 0.0, t), second.eval_vars(0.0, 0.0, t))
-        };
-        let point = if x.is_finite() && y.is_finite() {
-            Some(GraphPoint { x, y })
-        } else {
-            None
-        };
-        match point {
-            Some(p) => {
-                if let Some(prev) = points.last().copied() {
-                    let sx = ((p.x - prev.x) / (config.max_x - config.min_x)) * config.pixel_width as f64;
-                    let sy = ((p.y - prev.y) / (config.max_y - config.min_y)) * config.pixel_height as f64;
-                    if (sx * sx + sy * sy).sqrt() > config.max_screen_jump {
-                        flush(&mut segments, &mut current);
-                    }
+    for i in 0..base_count - 1 {
+        let t0 = min_t + step * i as f64;
+        let t1 = if i + 2 == base_count { max_t } else { t0 + step };
+        let p0 = state.eval(t0);
+        let p1 = state.eval(t1);
+
+        match (p0, p1) {
+            (Some(a), Some(b)) => {
+                let mut mids = Vec::new();
+                if state.refine(a, b, t0, t1, 0, &mut mids) {
+                    push_unique(&mut current, a);
+                    mids.into_iter().for_each(|p| push_unique(&mut current, p));
+                    push_unique(&mut current, b);
+                } else {
+                    flush(&mut segments, &mut current);
                 }
-                current.push(p);
-                points.push(p);
             }
-            None => {
-                flush(&mut segments, &mut current);
-                points.clear();
-            }
+            _ => flush(&mut segments, &mut current),
         }
     }
     flush(&mut segments, &mut current);
-    Ok(GraphResult { segments, evaluated_points, discontinuities: 0 })
+
+    Ok(GraphResult {
+        segments,
+        evaluated_points: state.evaluated_points,
+        discontinuities: 0,
+    })
+}
+
+struct ParamState<'a> {
+    first: &'a Expr,
+    second: &'a Expr,
+    config: &'a GraphConfig,
+    polar: bool,
+    evaluated_points: usize,
+}
+
+impl ParamState<'_> {
+    fn eval(&mut self, t: f64) -> Option<GraphPoint> {
+        self.evaluated_points += 1;
+        let (x, y) = if self.polar {
+            let r = self.first.eval_vars(t, 0.0, t);
+            (r * t.cos(), r * t.sin())
+        } else {
+            (
+                self.first.eval_vars(0.0, 0.0, t),
+                self.second.eval_vars(0.0, 0.0, t),
+            )
+        };
+        (x.is_finite() && y.is_finite()).then_some(GraphPoint { x, y })
+    }
+
+    fn screen(&self, p: GraphPoint) -> (f64, f64) {
+        (
+            (p.x - self.config.min_x) / (self.config.max_x - self.config.min_x)
+                * self.config.pixel_width as f64,
+            (self.config.max_y - p.y) / (self.config.max_y - self.config.min_y)
+                * self.config.pixel_height as f64,
+        )
+    }
+
+    fn refine(
+        &mut self,
+        left: GraphPoint,
+        right: GraphPoint,
+        left_t: f64,
+        right_t: f64,
+        depth: u32,
+        mids: &mut Vec<GraphPoint>,
+    ) -> bool {
+        let mid_t = (left_t + right_t) * 0.5;
+        if mid_t == left_t || mid_t == right_t {
+            return self.safe(left, right);
+        }
+        let Some(mid) = self.eval(mid_t) else { return false; };
+        let (lx, ly) = self.screen(left);
+        let (mx, my) = self.screen(mid);
+        let (rx, ry) = self.screen(right);
+        let line_x = (lx + rx) * 0.5;
+        let line_y = (ly + ry) * 0.5;
+        let error = ((mx - line_x).powi(2) + (my - line_y).powi(2)).sqrt();
+        let jump = ((rx - lx).powi(2) + (ry - ly).powi(2)).sqrt();
+
+        if error <= self.config.pixel_error && jump <= self.config.max_screen_jump {
+            return true;
+        }
+        if depth >= self.config.max_subdivision {
+            return error <= self.config.pixel_error * 2.0 && jump <= self.config.max_screen_jump * 2.0;
+        }
+
+        let mut left_mids = Vec::new();
+        if !self.refine(left, mid, left_t, mid_t, depth + 1, &mut left_mids) { return false; }
+        let mut right_mids = Vec::new();
+        if !self.refine(mid, right, mid_t, right_t, depth + 1, &mut right_mids) { return false; }
+        mids.extend(left_mids);
+        mids.push(mid);
+        mids.extend(right_mids);
+        true
+    }
+
+    fn safe(&self, left: GraphPoint, right: GraphPoint) -> bool {
+        let (lx, ly) = self.screen(left);
+        let (rx, ry) = self.screen(right);
+        ((rx - lx).powi(2) + (ry - ly).powi(2)).sqrt() <= self.config.max_screen_jump
+    }
 }
 
 pub fn analyze(expr: &Expr, config: &GraphConfig) -> CoreResult<GraphAnalysis> {
