@@ -1,0 +1,8 @@
+[package]
+name = "core-rs-example"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+core-search = { path = "../../crates/core-search" }
+core-math = { path = "../../crates/core-math" }
