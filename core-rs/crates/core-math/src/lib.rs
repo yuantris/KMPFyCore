@@ -283,6 +283,14 @@ mod tests {
     }
 
     #[test]
+    fn scientific_extensions() {
+        close(Expression::eval("factorial(5)").unwrap(), 120.0);
+        close(Expression::eval("fact(6)").unwrap(), 720.0);
+        close(Expression::eval("inv(4)").unwrap(), 0.25);
+        assert!(Expression::eval("factorial(-1)").is_err());
+    }
+
+    #[test]
     fn variable() {
         close(Expression::eval_x("x^2 + 1", 3.0).unwrap(), 10.0);
         assert!(Expression::eval("x + 1").is_err());
