@@ -1,25 +1,25 @@
 package io.core.rs
 
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+//import kotlinx.serialization.Serializable
+//import kotlinx.serialization.json.Json
 
-@Serializable
-data class ZipEntryInfo(
-    val name: String,
-    val compressed_size: Long,
-    val uncompressed_size: Long,
-    val is_dir: Boolean,
-)
+//@Serializable
+//data class ZipEntryInfo(
+//    val name: String,
+//    val compressed_size: Long,
+//    val uncompressed_size: Long,
+//    val is_dir: Boolean,
+//)
 
 class ZipReader(path: String) : AutoCloseable {
     private var handle: Long = CoreRsNative.nativeZipCreate(path)
 
     init { check(handle != 0L) { "Unable to open ZIP: $path" } }
 
-    fun entries(): List<ZipEntryInfo> = run {
-        checkOpen()
-        Json.decodeFromString(CoreRsNative.nativeZipEntries(handle))
-    }
+//    fun entries(): List<ZipEntryInfo> = run {
+//        checkOpen()
+//        Json.decodeFromString(CoreRsNative.nativeZipEntries(handle))
+//    }
 
     override fun close() {
         if (handle != 0L) {
