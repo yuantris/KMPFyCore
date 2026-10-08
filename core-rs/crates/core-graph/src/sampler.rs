@@ -282,6 +282,17 @@ pub fn sample_polar(expr: &Expr, config: &GraphConfig, min_t: f64, max_t: f64) -
     sample_parametric_pair(expr, &Expr::Number(0.0), config, min_t, max_t, true)
 }
 
+pub fn sample_polar_expression(expression: &str, config: &GraphConfig, min_t: f64, max_t: f64) -> CoreResult<GraphResult> {
+    let expr = core_math::Expression::compile(expression)?;
+    sample_polar(&expr, config, min_t, max_t)
+}
+
+pub fn sample_parametric_expressions(x_expression: &str, y_expression: &str, config: &GraphConfig, min_t: f64, max_t: f64) -> CoreResult<GraphResult> {
+    let x_expr = core_math::Expression::compile(x_expression)?;
+    let y_expr = core_math::Expression::compile(y_expression)?;
+    sample_parametric(&x_expr, &y_expr, config, min_t, max_t)
+}
+
 pub fn sample_parametric(x_expr: &Expr, y_expr: &Expr, config: &GraphConfig, min_t: f64, max_t: f64) -> CoreResult<GraphResult> {
     sample_parametric_pair(x_expr, y_expr, config, min_t, max_t, false)
 }
