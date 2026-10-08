@@ -28,6 +28,7 @@ import io.corer.rs.GraphSegment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.max
+import kotlin.math.pow
 
 @Composable
 fun FunctionGraphScreen() {
@@ -39,6 +40,8 @@ fun FunctionGraphScreen() {
     var minY by remember { mutableDoubleStateOf(-10.0) }
     var maxY by remember { mutableDoubleStateOf(10.0) }
     var loading by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
 
     suspend fun sample() {
         loading = true
@@ -55,7 +58,7 @@ fun FunctionGraphScreen() {
         Text("函数绘图", style = MaterialTheme.typography.headlineSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(expression, { expression = it }, Modifier.weight(1f), singleLine = true, label = { Text("f(x)") })
-            Button(onClick = { kotlinx.coroutines.MainScope().launch { sample() } }, enabled = !loading) { Text(if (loading) "绘制中" else "绘制") }
+            Button(onClick = { scope.launch { sample() } }, enabled = !loading) { Text(if (loading) "绘制中" else "绘制") }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         GraphCanvas(
@@ -69,7 +72,7 @@ fun FunctionGraphScreen() {
                 val cy = (minY + maxY) / 2 + dy * height / 500.0
                 minX = cx - nx / 2; maxX = cx + nx / 2
                 minY = cy - ny / 2; maxY = cy + ny / 2
-                kotlinx.coroutines.MainScope().launch { sample() }
+                scope.launch { sample() }
             },
             modifier = Modifier.fillMaxWidth().height(0.dp).weight(1f)
         )
@@ -81,6 +84,10 @@ private fun GraphCanvas(
     segments: List<GraphSegment>, minX: Double, maxX: Double, minY: Double, maxY: Double,
     onViewportChange: (Double, Double, Double) -> Unit, modifier: Modifier
 ) {
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val axisColor = MaterialTheme.colorScheme.onSurface
+    val graphColor = MaterialTheme.colorScheme.primary
+
     Canvas(modifier.pointerInput(Unit) {
         detectTransformGestures { _, pan, zoom, _ ->
             onViewportChange(pan.x, pan.y, 1.0 / zoom.coerceIn(0.6f, 1.6f))
@@ -94,7 +101,7 @@ private fun GraphCanvas(
         val gridStep = niceStep((maxX - minX) / 10.0)
         var gx = kotlin.math.floor(minX / gridStep) * gridStep
         while (gx <= maxX) {
-            drawLine(MaterialTheme.colorScheme.outlineVariant, Offset(screenX(gx), 0f), Offset(screenX(gx), size.height))
+            drawLine(gridColor, Offset(screenX(gx), 0f), Offset(screenX(gx), size.height))
             gx += gridStep
         }
         var gy = kotlin.math.floor(minY / gridStep) * gridStep
@@ -102,7 +109,7 @@ private fun GraphCanvas(
             drawLine(MaterialTheme.colorScheme.outlineVariant, Offset(0f, screenY(gy)), Offset(size.width, screenY(gy)))
             gy += gridStep
         }
-        if (minX <= 0 && maxX >= 0) drawLine(MaterialTheme.colorScheme.onSurface, Offset(screenX(0.0), 0f), Offset(screenX(0.0), size.height), strokeWidth = 2f)
+        if (minX <= 0 && maxX >= 0) drawLine(axisColor, Offset(screenX(0.0), 0f), Offset(screenX(0.0), size.height), strokeWidth = 2f)
         if (minY <= 0 && maxY >= 0) drawLine(MaterialTheme.colorScheme.onSurface, Offset(0f, screenY(0.0)), Offset(size.width, screenY(0.0)), strokeWidth = 2f)
 
         for (segment in segments) {
@@ -112,7 +119,7 @@ private fun GraphCanvas(
                 val point = Offset(screenX(p.x), screenY(p.y))
                 if (index == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
             }
-            drawPath(path, MaterialTheme.colorScheme.primary, style = Stroke(width = 3f, cap = StrokeCap.Round))
+            drawPath(path, graphColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
         }
     }
 }
