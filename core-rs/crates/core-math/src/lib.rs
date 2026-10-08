@@ -111,6 +111,8 @@ impl Expr {
         match self {
             Self::Number(v) | Self::Constant(v) => *v,
             Self::Variable => x,
+            Self::VariableY => y,
+            Self::VariableT => t,
             Self::Unary { op, expr } => match op {
                 UnaryOp::Plus => expr.eval_vars(x, y, t),
                 UnaryOp::Minus => -expr.eval_vars(x, y, t),
