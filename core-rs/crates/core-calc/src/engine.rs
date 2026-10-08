@@ -1,5 +1,6 @@
 use core_common::{CoreError, CoreResult};
 use crate::{basic, fraction, scientific, Rational};
+use core_math::AngleMode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CalculatorMode { Basic, Scientific, Fraction }
@@ -17,6 +18,14 @@ impl CalculatorEngine {
         match mode {
             CalculatorMode::Basic => basic::evaluate(expression).map(|v| CalculationResult { value: CalculationValue::Real(v) }),
             CalculatorMode::Scientific => scientific::evaluate(expression).map(|v| CalculationResult { value: CalculationValue::Real(v) }),
+            CalculatorMode::Fraction => fraction::evaluate(expression).map(|v| CalculationResult { value: CalculationValue::Rational(v) }),
+        }
+    }
+
+    pub fn evaluate_with_angle(mode: CalculatorMode, expression: &str, angle: AngleMode) -> CoreResult<CalculationResult> {
+        match mode {
+            CalculatorMode::Basic => basic::evaluate(expression).map(|v| CalculationResult { value: CalculationValue::Real(v) }),
+            CalculatorMode::Scientific => scientific::evaluate_with_angle(expression, angle).map(|v| CalculationResult { value: CalculationValue::Real(v) }),
             CalculatorMode::Fraction => fraction::evaluate(expression).map(|v| CalculationResult { value: CalculationValue::Rational(v) }),
         }
     }
