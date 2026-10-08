@@ -94,6 +94,49 @@ impl Expr {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Variable {
+    X,
+    Y,
+    T,
+}
+
+impl Expr {
+    pub fn eval_xy(&self, x: f64, y: f64) -> f64 { self.eval_vars(x, y, x) }
+
+    pub fn eval_vars(&self, x: f64, y: f64, t: f64) -> f64 {
+        match self {
+            Self::Number(v) | Self::Constant(v) => *v,
+            Self::Variable => x,
+            Self::Unary { op, expr } => match op {
+                UnaryOp::Plus => expr.eval_vars(x, y, t),
+                UnaryOp::Minus => -expr.eval_vars(x, y, t),
+            },
+            Self::Binary { op, left, right } => {
+                let a = left.eval_vars(x, y, t);
+                let b = right.eval_vars(x, y, t);
+                match op {
+                    BinaryOp::Add => a + b, BinaryOp::Subtract => a - b,
+                    BinaryOp::Multiply => a * b, BinaryOp::Divide => a / b,
+                    BinaryOp::Modulo => a % b, BinaryOp::Power => a.powf(b),
+                }
+            }
+            Self::Function { function, expr } => {
+                let value = expr.eval_vars(x, y, t);
+                match function {
+                    Function::Sin => value.sin(), Function::Cos => value.cos(),
+                    Function::Tan => value.tan(), Function::Asin => value.asin(),
+                    Function::Acos => value.acos(), Function::Atan => value.atan(),
+                    Function::Sqrt => value.sqrt(), Function::Abs => value.abs(),
+                    Function::Ln => value.ln(), Function::Log => value.log10(),
+                    Function::Exp => value.exp(), Function::Floor => value.floor(),
+                    Function::Ceil => value.ceil(),
+                }
+            }
+        }
+    }
+}
+
 pub struct Expression;
 
 impl Expression {
@@ -111,6 +154,10 @@ impl Expression {
 
     pub fn eval_x(input: &str, x: f64) -> CoreResult<f64> {
         Self::compile(input).map(|expr| expr.eval_x(x))
+    }
+
+    pub fn eval_vars(input: &str, x: f64, y: f64, t: f64) -> CoreResult<f64> {
+        Self::compile(input).map(|expr| expr.eval_vars(x, y, t))
     }
 }
 
