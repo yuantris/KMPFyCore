@@ -31,8 +31,7 @@ impl Expr {
         match self {
             Self::Number(v) | Self::Constant(v) => *v,
             Self::Variable => x,
-            Self::VariableY => y,
-            Self::VariableT => t,
+            Self::VariableY | Self::VariableT => f64::NAN,
             Self::Unary { op, expr } => match op {
                 UnaryOp::Plus => expr.eval_x(x),
                 UnaryOp::Minus => -expr.eval_x(x),
