@@ -104,3 +104,87 @@ pub extern "C" fn core_rs_analyze(
     })();
     result.map_or(std::ptr::null_mut(), json_ptr)
 }
+
+use core_binary::{ApkReader, ZipReader};
+use core_search::SearchEngine;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+static SEARCH: OnceLock<Mutex<HashMap<u64, SearchEngine>>> = OnceLock::new();
+static ZIPS: OnceLock<Mutex<HashMap<u64, ZipReader>>> = OnceLock::new();
+fn search_map() -> &'static Mutex<HashMap<u64, SearchEngine>> { SEARCH.get_or_init(|| Mutex::new(HashMap::new())) }
+fn zip_map() -> &'static Mutex<HashMap<u64, ZipReader>> { ZIPS.get_or_init(|| Mutex::new(HashMap::new())) }
+fn next_handle(map_len: usize) -> u64 { map_len as u64 + 1 }
+
+#[no_mangle]
+pub extern "C" fn core_rs_search_create() -> u64 {
+    let mut map = search_map().lock().unwrap_or_else(|e| e.into_inner());
+    let mut id = next_handle(map.len());
+    while map.contains_key(&id) { id += 1; }
+    map.insert(id, SearchEngine::new());
+    id
+}
+#[no_mangle]
+pub extern "C" fn core_rs_search_destroy(handle: u64) {
+    search_map().lock().unwrap_or_else(|e| e.into_inner()).remove(&handle);
+}
+#[no_mangle]
+pub extern "C" fn core_rs_search_add(handle: u64, id: u64, text: *const c_char) -> bool {
+    let Ok(text) = input(text) else { return false; };
+    let mut map = search_map().lock().unwrap_or_else(|e| e.into_inner());
+    map.get_mut(&handle).is_some_and(|engine| engine.add(id, text).is_ok())
+}
+#[no_mangle]
+pub extern "C" fn core_rs_search_remove(handle: u64, id: u64) -> bool {
+    search_map().lock().unwrap_or_else(|e| e.into_inner()).get_mut(&handle).is_some_and(|e| e.remove(id))
+}
+#[no_mangle]
+pub extern "C" fn core_rs_search_clear(handle: u64) {
+    if let Some(e) = search_map().lock().unwrap_or_else(|e| e.into_inner()).get_mut(&handle) { e.clear(); }
+}
+#[no_mangle]
+pub extern "C" fn core_rs_search_size(handle: u64) -> usize {
+    search_map().lock().unwrap_or_else(|e| e.into_inner()).get(&handle).map_or(0, SearchEngine::len)
+}
+#[no_mangle]
+pub extern "C" fn core_rs_search(handle: u64, query: *const c_char, limit: usize) -> *mut c_char {
+    let Ok(query) = input(query) else { return std::ptr::null_mut(); };
+    let map = search_map().lock().unwrap_or_else(|e| e.into_inner());
+    map.get(&handle).map_or(std::ptr::null_mut(), |e| json_ptr(e.search(query, limit)))
+}
+
+#[no_mangle]
+pub extern "C" fn core_rs_zip_open(path: *const c_char) -> u64 {
+    let Ok(path) = input(path) else { return 0; };
+    let Ok(reader) = ZipReader::open(path) else { return 0; };
+    let mut map = zip_map().lock().unwrap_or_else(|e| e.into_inner());
+    let mut id = next_handle(map.len());
+    while map.contains_key(&id) { id += 1; }
+    map.insert(id, reader);
+    id
+}
+#[no_mangle]
+pub extern "C" fn core_rs_zip_close(handle: u64) {
+    zip_map().lock().unwrap_or_else(|e| e.into_inner()).remove(&handle);
+}
+#[no_mangle]
+pub extern "C" fn core_rs_zip_entries(handle: u64) -> *mut c_char {
+    let map = zip_map().lock().unwrap_or_else(|e| e.into_inner());
+    map.get(&handle).and_then(|e| e.entries().ok()).map_or(std::ptr::null_mut(), json_ptr)
+}
+#[no_mangle]
+pub extern "C" fn core_rs_zip_contains(handle: u64, name: *const c_char) -> bool {
+    let Ok(name) = input(name) else { return false; };
+    let map = zip_map().lock().unwrap_or_else(|e| e.into_inner());
+    map.get(&handle).and_then(|e| e.contains(name).ok()).unwrap_or(false)
+}
+#[no_mangle]
+pub extern "C" fn core_rs_apk_is_apk(path: *const c_char) -> bool {
+    let Ok(path) = input(path) else { return false; };
+    ApkReader::open(path).and_then(|a| a.is_apk()).unwrap_or(false)
+}
+#[no_mangle]
+pub extern "C" fn core_rs_apk_entries(path: *const c_char) -> *mut c_char {
+    let Ok(path) = input(path) else { return std::ptr::null_mut(); };
+    ApkReader::open(path).and_then(|a| a.entries()).map_or(std::ptr::null_mut(), json_ptr)
+}
