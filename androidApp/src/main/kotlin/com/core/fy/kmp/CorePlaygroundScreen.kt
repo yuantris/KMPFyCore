@@ -326,6 +326,17 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
     var results by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
     var message by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(Unit) {
+        listOf(
+            "床前明月光",
+            "明月几时有",
+            "海上生明月",
+            "举杯邀明月",
+        ).forEachIndexed { index, value ->
+            runCatching { engine.add(index.toLong() + 1L, value) }
+        }
+    }
+
     fun addDocument() {
         val id = System.nanoTime().coerceAtLeast(1L)
         runCatching {
