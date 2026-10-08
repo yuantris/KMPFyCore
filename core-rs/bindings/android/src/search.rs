@@ -28,7 +28,7 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchCreate(
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchDestroy(
-    _env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass,
     handle: jlong,
 ) {
