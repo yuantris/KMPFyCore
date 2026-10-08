@@ -433,47 +433,89 @@ pub fn analyze(expr: &Expr, config: &GraphConfig) -> CoreResult<GraphAnalysis> {
     config.validate()?;
     let n = config.samples.clamp(256, 100_000);
     let step = (config.max_x - config.min_x) / (n - 1) as f64;
-    let mut values: Vec<(f64, f64)> = Vec::with_capacity(n);
+    let mut values: Vec<Option<(f64, f64)>> = Vec::with_capacity(n);
+
     for i in 0..n {
         let x = if i + 1 == n { config.max_x } else { config.min_x + step * i as f64 };
         let y = expr.eval_x(x);
-        if y.is_finite() { values.push((x, y)); }
+        values.push(y.is_finite().then_some((x, y)));
     }
 
     let mut zeroes = Vec::new();
     let mut extrema = Vec::new();
-    for pair in values.windows(2) {
-        let (x1, y1) = pair[0];
-        let (x2, y2) = pair[1];
-        if y1 == 0.0 {
-            zeroes.push(GraphPoint { x: x1, y: 0.0 });
-        } else if y1.signum() != y2.signum() {
-            let mut lo = x1;
-            let mut hi = x2;
-            for _ in 0..48 {
-                let mid = (lo + hi) * 0.5;
-                let ym = expr.eval_x(mid);
-                if !ym.is_finite() { break; }
-                if y1.signum() == ym.signum() { lo = mid; } else { hi = mid; }
+
+    for i in 0..n {
+        let Some((x, y)) = values[i] else { continue };
+        if y == 0.0 {
+            zeroes.push(GraphPoint { x, y: 0.0 });
+            continue;
+        }
+
+        if i + 1 < n {
+            if let Some((x2, y2)) = values[i + 1] {
+                if y.signum() != y2.signum() {
+                    let mut lo = x;
+                    let mut hi = x2;
+                    let mut y_lo = y;
+                    for _ in 0..56 {
+                        let mid = lo + (hi - lo) * 0.5;
+                        let y_mid = expr.eval_x(mid);
+                        if !y_mid.is_finite() { break; }
+                        if y_mid == 0.0 {
+                            lo = mid;
+                            hi = mid;
+                            break;
+                        }
+                        if y_lo.signum() == y_mid.signum() {
+                            lo = mid;
+                            y_lo = y_mid;
+                        } else {
+                            hi = mid;
+                        }
+                    }
+                    zeroes.push(GraphPoint { x: (lo + hi) * 0.5, y: 0.0 });
+                }
             }
-            let root = (lo + hi) * 0.5;
-            zeroes.push(GraphPoint { x: root, y: 0.0 });
+        }
+
+        if i > 0 && i + 1 < n {
+            let Some((x0, y0)) = values[i - 1] else { continue };
+            let Some((x2, y2)) = values[i + 1] else { continue };
+            let d1 = y - y0;
+            let d2 = y2 - y;
+            if d1.signum() != 0.0 && d2.signum() != 0.0 && d1.signum() != d2.signum() {
+                // Refine the extremum with a local ternary search. This avoids
+                // locking the marker to the coarse sampling grid.
+                let increasing = d1 > 0.0;
+                let mut lo = x0;
+                let mut hi = x2;
+                for _ in 0..24 {
+                    let m1 = lo + (hi - lo) / 3.0;
+                    let m2 = hi - (hi - lo) / 3.0;
+                    let y1 = expr.eval_x(m1);
+                    let y2v = expr.eval_x(m2);
+                    if !y1.is_finite() || !y2v.is_finite() { break; }
+                    if increasing {
+                        if y1 < y2v { lo = m1; } else { hi = m2; }
+                    } else if y1 > y2v {
+                        lo = m1;
+                    } else {
+                        hi = m2;
+                    }
+                }
+                let xe = (lo + hi) * 0.5;
+                let ye = expr.eval_x(xe);
+                if ye.is_finite() {
+                    extrema.push(GraphPoint { x: xe, y: ye });
+                }
+            }
         }
     }
-    for pair in values.windows(3) {
-        let (x0, y0) = pair[0];
-        let (x1, y1) = pair[1];
-        let (x2, y2) = pair[2];
-        let d1 = y1 - y0;
-        let d2 = y2 - y1;
-        if d1.signum() != 0.0 && d2.signum() != 0.0 && d1.signum() != d2.signum() && y1.is_finite() {
-            extrema.push(GraphPoint { x: x1, y: y1 });
-        }
-        let _ = (x0, x2);
-    }
-    zeroes.sort_by(|a,b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
-    zeroes.dedup_by(|a,b| (a.x-b.x).abs() < step * 2.0);
-    extrema.sort_by(|a,b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
-    extrema.dedup_by(|a,b| (a.x-b.x).abs() < step * 2.0);
+
+    zeroes.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
+    zeroes.dedup_by(|a, b| (a.x - b.x).abs() < step * 2.0);
+    extrema.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap_or(std::cmp::Ordering::Equal));
+    extrema.dedup_by(|a, b| (a.x - b.x).abs() < step * 2.0);
+
     Ok(GraphAnalysis { zeroes, extrema })
 }
