@@ -245,7 +245,7 @@ private fun HistoryView(
 private fun calculatorKeys(mode: CalculatorMode): List<List<CalculatorKey>> {
     fun t(label: String, insert: String = label) = CalculatorKey.Text(label, insert)
     val basic = listOf(
-        listOf(CalculatorKey.Clear, CalculatorKey.Delete, t("mod", "%"), t("÷", "/")),
+        listOf(CalculatorKey.Clear, CalculatorKey.Delete, t("%"), t("÷", "/")),
         listOf(t("7"), t("8"), t("9"), t("×", "*")),
         listOf(t("4"), t("5"), t("6"), t("−", "-")),
         listOf(t("1"), t("2"), t("3"), t("+")),
