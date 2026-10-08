@@ -18,7 +18,7 @@ expect object CoreRsPlatform {
     fun eval(expression: String): Double
     fun eval(expression: String, x: Double): Double
     fun containsVariable(expression: String): Boolean
-    fun sampleGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int = 1200, pixelWidth: Int = 1200, pixelHeight: Int = 800): List<GraphSegment>
+    fun sampleGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int = 1200, pixelWidth: Int = 1200, pixelHeight: Int = 800, mode: GraphMode = GraphMode.Cartesian, secondExpression: String = "", minT: Double = -10.0, maxT: Double = 10.0): List<GraphSegment>
     fun analyzeGraph(
         expression: String,
         minX: Double,
