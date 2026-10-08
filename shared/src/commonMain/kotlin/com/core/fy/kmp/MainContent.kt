@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.core.fy.kmp.core.CorePlaygroundContent
 import com.core.fy.kmp.destinations.AdaptiveLuminanceGlassContent
 import com.core.fy.kmp.destinations.BottomTabsContent
 import com.core.fy.kmp.destinations.ButtonsContent
@@ -36,6 +37,7 @@ fun MainContent() {
 
         when (destination) {
             CatalogDestination.Home -> HomeContent(onNavigate = { destination = it })
+            CatalogDestination.CorePlayground -> CorePlaygroundContent()
 
             CatalogDestination.Buttons -> ButtonsContent()
             CatalogDestination.Toggle -> ToggleContent()
