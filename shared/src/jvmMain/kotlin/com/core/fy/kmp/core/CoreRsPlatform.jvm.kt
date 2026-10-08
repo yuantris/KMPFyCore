@@ -32,6 +32,10 @@ actual object CoreRsPlatform {
         samples: Int,
         pixelWidth: Int,
         pixelHeight: Int,
+        mode: GraphMode,
+        secondExpression: String,
+        minT: Double,
+        maxT: Double,
     ): List<GraphSegment> {
         require(expression.isNotBlank()) { "expression must not be blank" }
 
@@ -65,6 +69,22 @@ actual object CoreRsPlatform {
                 )
             }
         }
+    }
+
+    actual fun analyzeGraph(
+        expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int
+    ): GraphAnalysis {
+        val root = JSONObject(CoreRsNative.nativeGraphAnalyze(expression, minX, maxX, minY, maxY, samples))
+        fun points(name: String): List<GraphPoint> {
+            val array = root.optJSONArray(name) ?: return emptyList()
+            return buildList(array.length()) {
+                for (i in 0 until array.length()) {
+                    val item = array.optJSONObject(i) ?: continue
+                    add(GraphPoint(item.optDouble("x"), item.optDouble("y")))
+                }
+            }
+        }
+        return GraphAnalysis(points("zeroes"), points("extrema"))
     }
 
     actual fun createSearch(): CoreSearch = CoreSearch()
