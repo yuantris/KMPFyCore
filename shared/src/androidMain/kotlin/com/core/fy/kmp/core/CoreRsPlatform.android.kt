@@ -19,8 +19,13 @@ actual object CoreRsPlatform {
     actual fun eval(expression: String) = Expression.eval(expression)
     actual fun eval(expression: String, x: Double) = Expression.eval(expression, x)
     actual fun containsVariable(expression: String) = Expression.containsVariable(expression)
-    actual fun sampleGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int, pixelWidth: Int, pixelHeight: Int) =
-        CoreGraph.sample(expression, minX, maxX, minY, maxY, samples, pixelWidth, pixelHeight).map { s -> GraphSegment(s.points.map { GraphPoint(it.x, it.y) }) }
+    actual fun sampleGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int, pixelWidth: Int, pixelHeight: Int, mode: GraphMode, secondExpression: String, minT: Double, maxT: Double): List<GraphSegment> =
+        CoreRsNative.nativeGraphAdvanced(expression, secondExpression, mode.ordinal, minX, maxX, minY, maxY, minT, maxT, samples, pixelWidth, pixelHeight).let { json -> JSONArray(json).let { root -> buildList(root.length()) { for (i in 0 until root.length()) { val points = root.optJSONArray(i) ?: continue; add(GraphSegment(buildList(points.length()) { for (j in 0 until points.length()) { val p = points.optJSONArray(j) ?: continue; if (p.length() >= 2) add(GraphPoint(p.optDouble(0), p.optDouble(1))) } })) } } } }
+    actual fun analyzeGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int): GraphAnalysis {
+        val root = JSONObject(CoreRsNative.nativeGraphAnalyze(expression, minX, maxX, minY, maxY, samples))
+        fun points(name: String) = root.optJSONArray(name)?.let { a -> buildList(a.length()) { for (i in 0 until a.length()) { val p = a.optJSONObject(i) ?: continue; add(GraphPoint(p.optDouble("x"), p.optDouble("y"))) } } } ?: emptyList()
+        return GraphAnalysis(points("zeroes"), points("extrema"))
+    }
     actual fun createSearch(): CoreSearch = CoreSearch()
     actual val sampleZipPath: String get() = File(CoreRsContext.context.cacheDir, "core-rs-sample.zip").absolutePath
     actual val apkPath: String get() = CoreRsContext.context.applicationInfo.sourceDir
