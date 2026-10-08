@@ -37,8 +37,9 @@ impl Parser {
     }
     // Exponentiation is right associative through parse_unary on the exponent.
     fn parse_power(&mut self) -> CoreResult<Expr> {
-        let base = self.parse_primary()?;
-        if self.peek() == &Token::Caret { self.consume(); let exponent = self.parse_unary()?; return Ok(Expr::Binary { op: BinaryOp::Power, left: Box::new(base), right: Box::new(exponent) }); }
+        let mut base = self.parse_primary()?;
+        if self.peek() == &Token::Caret { self.consume(); let exponent = self.parse_unary()?; base = Expr::Binary { op: BinaryOp::Power, left: Box::new(base), right: Box::new(exponent) }; }
+        if self.peek() == &Token::Percent { self.consume(); base = Expr::Function { function: Function::Percent, expr: Box::new(base) }; }
         Ok(base)
     }
     fn parse_primary(&mut self) -> CoreResult<Expr> {
