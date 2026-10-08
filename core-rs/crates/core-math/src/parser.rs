@@ -58,5 +58,5 @@ impl Parser {
 }
 fn starts_primary(token: &Token) -> bool { matches!(token, Token::Number(_) | Token::Identifier(_) | Token::LeftParen) }
 fn parse_function(name: &str) -> CoreResult<Function> {
-    match name { "sin" => Ok(Function::Sin), "cos" => Ok(Function::Cos), "tan" => Ok(Function::Tan), "asin" => Ok(Function::Asin), "acos" => Ok(Function::Acos), "atan" => Ok(Function::Atan), "sqrt" => Ok(Function::Sqrt), "abs" => Ok(Function::Abs), "ln" => Ok(Function::Ln), "log" | "log10" => Ok(Function::Log), "exp" => Ok(Function::Exp), "floor" => Ok(Function::Floor), "ceil" => Ok(Function::Ceil), _ => Err(CoreError::Parse(format!("unknown function: {name}"))) }
+    match name { "sin" => Ok(Function::Sin), "cos" => Ok(Function::Cos), "tan" => Ok(Function::Tan), "asin" => Ok(Function::Asin), "acos" => Ok(Function::Acos), "atan" => Ok(Function::Atan), "sqrt" => Ok(Function::Sqrt), "abs" => Ok(Function::Abs), "ln" => Ok(Function::Ln), "log" | "log10" => Ok(Function::Log), "exp" => Ok(Function::Exp), "floor" => Ok(Function::Floor), "ceil" => Ok(Function::Ceil), "fact" | "factorial" => Ok(Function::Factorial), _ => Err(CoreError::Parse(format!("unknown function: {name}"))) }
 }
