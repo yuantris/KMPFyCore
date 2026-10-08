@@ -10,6 +10,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 core-common.workspace = true
 core-math.workspace = true
+core-calc.workspace = true
 core-search.workspace = true
 core-binary.workspace = true
 core-graph.workspace = true
