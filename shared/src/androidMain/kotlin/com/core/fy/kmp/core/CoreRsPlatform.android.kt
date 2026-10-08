@@ -3,6 +3,7 @@ package com.core.fy.kmp.core
 import android.content.Context
 import io.core.rs.ApkReader
 import io.core.rs.CoreGraph
+import io.core.rs.CoreRsNative
 import io.core.rs.Expression
 import org.json.JSONArray
 import org.json.JSONObject
