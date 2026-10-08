@@ -20,8 +20,6 @@ private data class CalculatorHistoryItem(
     val id: Long,
 )
 
-private enum class AngleMode(val title: String) { Deg("DEG"), Rad("RAD") }
-
 private sealed interface CalculatorKey {
     data class Text(val label: String, val insert: String = label) : CalculatorKey
     data object Clear : CalculatorKey
@@ -33,7 +31,6 @@ private sealed interface CalculatorKey {
 @Composable
 internal fun CalculatorPanel(backdrop: LayerBackdrop) {
     var mode by remember { mutableStateOf(CalculatorMode.Basic) }
-    var angleMode by remember { mutableStateOf(AngleMode.Rad) }
     var expression by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<CalculationResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -81,12 +78,6 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
                         backdrop = backdrop,
                         tint = if (item == mode) MaterialTheme.colorScheme.primary else null,
                     ) { Text(item.title()) }
-                }
-                if (mode == CalculatorMode.Scientific) {
-                    LiquidButton(
-                        onClick = { angleMode = if (angleMode == AngleMode.Rad) AngleMode.Deg else AngleMode.Rad },
-                        backdrop = backdrop,
-                    ) { Text(angleMode.title) }
                 }
             }
 
