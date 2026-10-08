@@ -23,7 +23,7 @@ pub enum BinaryOp { Add, Subtract, Multiply, Divide, Modulo, Power }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Function {
-    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil, Factorial,
+    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil, Factorial, Reciprocal,
 }
 
 impl Expr {
@@ -65,6 +65,7 @@ impl Expr {
                     Function::Floor => value.floor(),
                     Function::Ceil => value.ceil(),
                     Function::Factorial => factorial(value),
+                    Function::Reciprocal => 1.0 / value,
                     Function::Factorial => factorial(value),
                 }
             }
