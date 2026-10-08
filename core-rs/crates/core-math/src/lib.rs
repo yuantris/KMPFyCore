@@ -23,7 +23,7 @@ pub enum BinaryOp { Add, Subtract, Multiply, Divide, Modulo, Power }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Function {
-    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil,
+    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil, Factorial,
 }
 
 impl Expr {
@@ -64,6 +64,8 @@ impl Expr {
                     Function::Exp => value.exp(),
                     Function::Floor => value.floor(),
                     Function::Ceil => value.ceil(),
+                    Function::Factorial => factorial(value),
+                    Function::Factorial => factorial(value),
                 }
             }
         }
@@ -163,6 +165,14 @@ impl Rational {
             self.denominator.checked_mul(other.numerator).ok_or_else(|| CoreError::InvalidArgument("rational overflow".into()))?,
         )
     }
+}
+
+fn factorial(value: f64) -> f64 {
+    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > 170.0 { return f64::NAN; }
+    let mut result = 1.0;
+    let mut n = 2.0;
+    while n <= value { result *= n; n += 1.0; }
+    result
 }
 
 fn gcd_i64(mut a: u64, mut b: u64) -> u64 {
