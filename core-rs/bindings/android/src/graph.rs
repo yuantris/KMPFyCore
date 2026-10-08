@@ -3,7 +3,7 @@ use core_math::Expression;
 use jni::objects::{JClass, JString};
 use jni::sys::{jdouble, jint, jstring};
 use jni::JNIEnv;
-use crate::support::{string_arg, throw};
+use crate::support::throw;
 
 fn graph_json(result: GraphResult) -> Result<String, serde_json::Error> {
     let payload: Vec<Vec<[f64; 2]>> = result.segments.into_iter()

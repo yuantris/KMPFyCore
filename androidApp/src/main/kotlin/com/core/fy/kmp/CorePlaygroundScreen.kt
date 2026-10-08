@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -33,7 +34,7 @@ import kotlin.math.log10
 import kotlin.math.pow
 
 private enum class CoreTab(val title: String, val symbol: String) {
-    Math("数学", "ƒ"), Graph("绘图", "∿"), Search("搜索", "⌕"), Binary("文件", "ZIP")
+    Math("数学", "ƒ"), Graph("绘图", "∿"), Search("搜索", "⌕"), Binary("文件", "zip")
 }
 
 @Composable
@@ -265,6 +266,8 @@ private fun GraphCanvas(
     modifier: Modifier,
     onViewportChange: (Double, Double, Double) -> Unit,
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Canvas(
         modifier.pointerInput(Unit) {
             detectTransformGestures { _, pan, zoom, _ ->
@@ -299,7 +302,7 @@ private fun GraphCanvas(
                 val screen = Offset(screenX(point.x), screenY(point.y))
                 if (index == 0) path.moveTo(screen.x, screen.y) else path.lineTo(screen.x, screen.y)
             }
-            drawPath(path, MaterialTheme.colorScheme.primary, style = Stroke(width = 3f, cap = StrokeCap.Round))
+            drawPath(path, primaryColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
         }
     }
 }
