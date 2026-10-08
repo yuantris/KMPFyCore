@@ -2,6 +2,7 @@ package com.core.fy.kmp
 
 enum class CatalogDestination {
     Home,
+    CorePlayground,
 
     Buttons,
     Toggle,
