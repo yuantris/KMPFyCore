@@ -49,6 +49,7 @@ object CoreRsNative {
     @JvmStatic external fun nativeExpressionEval(expression: String): Double
     @JvmStatic external fun nativeExpressionEvalX(expression: String, x: Double): Double
     @JvmStatic external fun nativeExpressionContainsVariable(expression: String): Boolean
+    @JvmStatic external fun nativeCalculate(expression: String, mode: Int): String
 
     @JvmStatic external fun nativeGraphAdvanced(
         expression: String, secondExpression: String, mode: Int,
