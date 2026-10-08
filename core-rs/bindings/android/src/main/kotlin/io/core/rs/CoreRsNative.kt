@@ -1,4 +1,4 @@
-package io.corer.rs
+package io.core.rs
 
 internal object CoreRsNative {
     init { System.loadLibrary("core_rs_android") }

@@ -1,34 +1,40 @@
 package com.core.fy.kmp
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import io.corer.rs.CoreGraph
-import io.corer.rs.GraphSegment
+import io.core.rs.GraphSegment
+import io.core.rs.CoreGraph
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.max
-import kotlin.math.pow
+import kotlin.math.*
 
 @Composable
 fun FunctionGraphScreen() {
@@ -50,15 +56,42 @@ fun FunctionGraphScreen() {
             withContext(Dispatchers.Default) {
                 CoreGraph.sample(expression, minX, maxX, minY, maxY)
             }
-        }.onSuccess { segments = it }.onFailure { error = it.message ?: "表达式错误" }
+        }
+            .onSuccess { segments = it }
+            .onFailure {
+                error = it.message ?: "表达式错误"
+                Log.e("FunctionGraph", error, it)
+            }
         loading = false
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("函数绘图", style = MaterialTheme.typography.headlineSmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(expression, { expression = it }, Modifier.weight(1f), singleLine = true, label = { Text("f(x)") })
-            Button(onClick = { scope.launch { sample() } }, enabled = !loading) { Text(if (loading) "绘制中" else "绘制") }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            "函数绘图",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)
+        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                expression,
+                { expression = it },
+                Modifier.weight(1f),
+                singleLine = true,
+                label = { Text("f(x)") })
+            Button(
+                onClick = { scope.launch { sample() } },
+                enabled = !loading
+            ) { Text(if (loading) "绘制中" else "绘制") }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         GraphCanvas(
@@ -74,7 +107,10 @@ fun FunctionGraphScreen() {
                 minY = cy - ny / 2; maxY = cy + ny / 2
                 scope.launch { sample() }
             },
-            modifier = Modifier.fillMaxWidth().height(0.dp).weight(1f)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.dp)
+                .weight(1f)
         )
     }
 }
@@ -90,7 +126,7 @@ private fun GraphCanvas(
 
     Canvas(modifier.pointerInput(Unit) {
         detectTransformGestures { _, pan, zoom, _ ->
-            onViewportChange(pan.x, pan.y, 1.0 / zoom.coerceIn(0.6f, 1.6f))
+            onViewportChange(pan.x.toDouble(), pan.y.toDouble(), 1.0 / zoom.coerceIn(0.6f, 1.6f))
         }
     }) {
         val sx = size.width / (maxX - minX).toFloat()
@@ -99,18 +135,27 @@ private fun GraphCanvas(
         fun screenY(y: Double) = (size.height - (y - minY) * sy).toFloat()
 
         val gridStep = niceStep((maxX - minX) / 10.0)
-        var gx = kotlin.math.floor(minX / gridStep) * gridStep
+        var gx = floor(minX / gridStep) * gridStep
         while (gx <= maxX) {
             drawLine(gridColor, Offset(screenX(gx), 0f), Offset(screenX(gx), size.height))
             gx += gridStep
         }
-        var gy = kotlin.math.floor(minY / gridStep) * gridStep
+        var gy = floor(minY / gridStep) * gridStep
         while (gy <= maxY) {
-            drawLine(MaterialTheme.colorScheme.outlineVariant, Offset(0f, screenY(gy)), Offset(size.width, screenY(gy)))
+            drawLine(gridColor, Offset(0f, screenY(gy)), Offset(size.width, screenY(gy)))
             gy += gridStep
         }
-        if (minX <= 0 && maxX >= 0) drawLine(axisColor, Offset(screenX(0.0), 0f), Offset(screenX(0.0), size.height), strokeWidth = 2f)
-        if (minY <= 0 && maxY >= 0) drawLine(MaterialTheme.colorScheme.onSurface, Offset(0f, screenY(0.0)), Offset(size.width, screenY(0.0)), strokeWidth = 2f)
+        if (minX <= 0 && maxX >= 0) drawLine(
+            axisColor,
+            Offset(screenX(0.0), 0f),
+            Offset(screenX(0.0), size.height),
+            strokeWidth = 2f
+        )
+        if (minY <= 0 && maxY >= 0) drawLine(
+            axisColor, Offset(0f, screenY(0.0)), Offset(
+                size.width, screenY(0.0)
+            ), strokeWidth = 2f
+        )
 
         for (segment in segments) {
             if (segment.points.size < 2) continue
@@ -125,8 +170,10 @@ private fun GraphCanvas(
 }
 
 private fun niceStep(raw: Double): Double {
-    val exponent = kotlin.math.floor(kotlin.math.log10(raw.coerceAtLeast(1e-9)))
-    val fraction = raw / kotlin.math.pow(10.0, exponent)
-    val nice = when { fraction < 1.5 -> 1.0; fraction < 3.0 -> 2.0; fraction < 7.0 -> 5.0; else -> 10.0 }
-    return nice * kotlin.math.pow(10.0, exponent)
+    val exponent = floor(log10(raw.coerceAtLeast(1e-9)))
+    val fraction = raw / 10.0.pow(exponent)
+    val nice = when {
+        fraction < 1.5 -> 1.0; fraction < 3.0 -> 2.0; fraction < 7.0 -> 5.0; else -> 10.0
+    }
+    return nice * 10.0.pow(exponent)
 }

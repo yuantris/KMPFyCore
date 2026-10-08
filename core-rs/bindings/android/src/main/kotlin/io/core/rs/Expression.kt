@@ -1,4 +1,4 @@
-package io.corer.rs
+package io.core.rs
 
 object Expression {
     fun eval(expression: String): Double {

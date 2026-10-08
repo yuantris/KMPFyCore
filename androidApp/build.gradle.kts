@@ -10,6 +10,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutinesCore)
     implementation(libs.compose.uiToolingPreview)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material3)
     debugImplementation(libs.compose.uiTooling)
 }
 android {

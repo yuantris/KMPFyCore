@@ -1,4 +1,4 @@
-package io.corer.rs
+package io.core.rs
 
 import org.json.JSONArray
 

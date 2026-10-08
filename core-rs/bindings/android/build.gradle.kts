@@ -1,13 +1,12 @@
 plugins {
     id("com.android.library")
-    kotlin("android")
-    kotlin("plugin.serialization")
+    alias(libs.plugins.kotlinSerialization)
 }
 
 android {
-    namespace = "io.corer.rs"
-    compileSdk = 36
-    defaultConfig { minSdk = 24 }
+    namespace = "io.core.rs"
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    defaultConfig { minSdk = libs.versions.android.minSdk.get().toInt() }
 
     sourceSets["main"].jniLibs.srcDir("src/main/jniLibs")
 

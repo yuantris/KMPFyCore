@@ -1,4 +1,4 @@
-package io.corer.rs
+package io.core.rs
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
