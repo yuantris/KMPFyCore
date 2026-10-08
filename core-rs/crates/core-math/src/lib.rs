@@ -71,8 +71,8 @@ impl Expr {
 
     pub fn contains_variable(&self) -> bool {
         match self {
-            Self::Variable => true,
-            Self::Number(_) | Self::Constant(_) | Self::VariableY | Self::VariableT => false,
+            Self::Variable | Self::VariableY | Self::VariableT => true,
+            Self::Number(_) | Self::Constant(_) => false,
             Self::Unary { expr, .. } | Self::Function { expr, .. } => expr.contains_variable(),
             Self::Binary { left, right, .. } => {
                 left.contains_variable() || right.contains_variable()
