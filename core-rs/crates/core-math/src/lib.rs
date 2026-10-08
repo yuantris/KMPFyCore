@@ -23,7 +23,7 @@ pub enum BinaryOp { Add, Subtract, Multiply, Divide, Modulo, Power }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Function {
-    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil, Factorial, Reciprocal,
+    Sin, Cos, Tan, Asin, Acos, Atan, Sqrt, Abs, Ln, Log, Exp, Floor, Ceil, Factorial, Reciprocal, Percent,
 }
 
 impl Expr {
@@ -42,8 +42,8 @@ impl Expr {
                 let a = left.eval_x_with_angle(x, angle);
                 let b = right.eval_x_with_angle(x, angle);
                 match op {
-                    BinaryOp::Add => a + b,
-                    BinaryOp::Subtract => a - b,
+                    BinaryOp::Add => if is_percent_expr(right) { a + a * b } else { a + b },
+                    BinaryOp::Subtract => if is_percent_expr(right) { a - a * b } else { a - b },
                     BinaryOp::Multiply => a * b,
                     BinaryOp::Divide => a / b,
                     BinaryOp::Modulo => a % b,
@@ -68,6 +68,7 @@ impl Expr {
                     Function::Ceil => value.ceil(),
                     Function::Factorial => factorial(value),
                     Function::Reciprocal => 1.0 / value,
+                    Function::Percent => value / 100.0,
                 }
             }
         }
@@ -169,6 +170,8 @@ impl Rational {
     }
 }
 
+fn is_percent_expr(expr: &Expr) -> bool { matches!(expr, Expr::Function { function: Function::Percent, .. }) }
+
 fn factorial(value: f64) -> f64 {
     if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > 170.0 { return f64::NAN; }
     let mut result = 1.0;
@@ -216,7 +219,7 @@ impl Expr {
                 let a = left.eval_vars(x, y, t);
                 let b = right.eval_vars(x, y, t);
                 match op {
-                    BinaryOp::Add => a + b, BinaryOp::Subtract => a - b,
+                    BinaryOp::Add => if is_percent_expr(right) { a + a * b } else { a + b }, BinaryOp::Subtract => if is_percent_expr(right) { a - a * b } else { a - b },
                     BinaryOp::Multiply => a * b, BinaryOp::Divide => a / b,
                     BinaryOp::Modulo => a % b, BinaryOp::Power => a.powf(b),
                 }
