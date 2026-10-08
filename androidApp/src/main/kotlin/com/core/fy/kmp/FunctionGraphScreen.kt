@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import io.core.rs.GraphSegment
 import io.core.rs.CoreGraph
@@ -46,6 +47,7 @@ fun FunctionGraphScreen() {
     var minY by remember { mutableDoubleStateOf(-10.0) }
     var maxY by remember { mutableDoubleStateOf(10.0) }
     var loading by remember { mutableStateOf(false) }
+    var canvasSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
 
     val scope = rememberCoroutineScope()
 
@@ -54,7 +56,11 @@ fun FunctionGraphScreen() {
         error = null
         runCatching {
             withContext(Dispatchers.Default) {
-                CoreGraph.sample(expression, minX, maxX, minY, maxY)
+                CoreGraph.sample(
+                    expression, minX, maxX, minY, maxY,
+                    pixelWidth = canvasSize.width.coerceAtLeast(2),
+                    pixelHeight = canvasSize.height.coerceAtLeast(2),
+                )
             }
         }
             .onSuccess { segments = it }
@@ -109,8 +115,8 @@ fun FunctionGraphScreen() {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(0.dp)
                 .weight(1f)
+                .then(Modifier.onSizeChanged { canvasSize = it })
         )
     }
 }
