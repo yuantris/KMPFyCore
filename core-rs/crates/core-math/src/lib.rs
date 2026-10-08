@@ -7,6 +7,8 @@ use core_common::{CoreError, CoreResult};
 pub enum Expr {
     Number(f64),
     Variable,
+    VariableY,
+    VariableT,
     Constant(f64),
     Unary { op: UnaryOp, expr: Box<Expr> },
     Binary { op: BinaryOp, left: Box<Expr>, right: Box<Expr> },
@@ -29,6 +31,8 @@ impl Expr {
         match self {
             Self::Number(v) | Self::Constant(v) => *v,
             Self::Variable => x,
+            Self::VariableY => y,
+            Self::VariableT => t,
             Self::Unary { op, expr } => match op {
                 UnaryOp::Plus => expr.eval_x(x),
                 UnaryOp::Minus => -expr.eval_x(x),
@@ -69,7 +73,7 @@ impl Expr {
     pub fn contains_variable(&self) -> bool {
         match self {
             Self::Variable => true,
-            Self::Number(_) | Self::Constant(_) => false,
+            Self::Number(_) | Self::Constant(_) | Self::VariableY | Self::VariableT => false,
             Self::Unary { expr, .. } | Self::Function { expr, .. } => expr.contains_variable(),
             Self::Binary { left, right, .. } => {
                 left.contains_variable() || right.contains_variable()
