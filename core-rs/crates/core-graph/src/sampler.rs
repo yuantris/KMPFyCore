@@ -33,11 +33,11 @@ impl GraphConfig {
         if !self.min_y.is_finite() || !self.max_y.is_finite() || self.min_y >= self.max_y {
             return Err(CoreError::InvalidArgument("invalid y range".into()));
         }
-        if self.samples < 2 {
-            return Err(CoreError::InvalidArgument("samples must be >= 2".into()));
+        if !(2..=1_000_000).contains(&self.samples) {
+            return Err(CoreError::InvalidArgument("samples must be in 2..=1000000".into()));
         }
-        if self.pixel_width < 2 || self.pixel_height < 2 {
-            return Err(CoreError::InvalidArgument("pixel size must be >= 2".into()));
+        if !(2..=16_384).contains(&self.pixel_width) || !(2..=16_384).contains(&self.pixel_height) {
+            return Err(CoreError::InvalidArgument("pixel size must be in 2..=16384".into()));
         }
         if self.max_subdivision == 0 {
             return Err(CoreError::InvalidArgument("max_subdivision must be > 0".into()));
