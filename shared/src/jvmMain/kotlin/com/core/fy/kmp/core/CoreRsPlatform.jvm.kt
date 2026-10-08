@@ -18,6 +18,17 @@ actual object CoreRsPlatform {
         return CoreRsNative.nativeExpressionEvalX(expression, x)
     }
 
+    actual fun calculate(expression: String, mode: CalculatorMode): CalculationResult {
+        require(expression.isNotBlank()) { "expression must not be blank" }
+        val root = JSONObject(CoreRsNative.nativeCalculate(expression, mode.ordinal))
+        return CalculationResult(
+            type = root.optString("type"),
+            value = root.optDouble("value"),
+            numerator = if (root.has("numerator")) root.optLong("numerator") else null,
+            denominator = if (root.has("denominator")) root.optLong("denominator") else null,
+        )
+    }
+
     actual fun containsVariable(expression: String): Boolean {
         require(expression.isNotBlank()) { "expression must not be blank" }
         return CoreRsNative.nativeExpressionContainsVariable(expression)
