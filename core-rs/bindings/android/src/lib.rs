@@ -155,7 +155,13 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeGraph(
         ..GraphConfig::default()
     };
 
-    let result = core_graph::sample(&expr, &config);
+    let result = match core_graph::sample_checked(&expr, &config) {
+        Ok(result) => result,
+        Err(error) => {
+            throw(&mut env, error.to_string());
+            return std::ptr::null_mut();
+        }
+    };
 
     match graph_json(result) {
         Ok(json) => match env.new_string(json) {
@@ -177,11 +183,11 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchCreate(
     _env: JNIEnv,
     _class: JClass,
 ) -> jlong {
-    let id = next_id();
-    searches()
-        .lock()
-        .expect("search mutex poisoned")
-        .insert(id, SearchEngine::new());
+    let Some(id) = next_id() else {
+        throw(&mut env, "native handle space exhausted");
+        return 0;
+    };
+    lock(searches()).insert(id, SearchEngine::new());
     id as jlong
 }
 
@@ -191,10 +197,11 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchDestroy(
     _class: JClass,
     handle: jlong,
 ) {
-    searches()
-        .lock()
-        .expect("search mutex poisoned")
-        .remove(&(handle as u64));
+    let Ok(handle) = require_handle(handle, "search") else {
+        throw(&mut env, "invalid search handle");
+        return;
+    };
+    lock(searches()).remove(&handle);
 }
 
 #[unsafe(no_mangle)]
@@ -205,21 +212,23 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchAdd(
     id: jlong,
     text: JString,
 ) -> jboolean {
-    let text: String = match env.get_string(&text) {
-        Ok(value) => value.into(),
-        Err(error) => {
-            throw(&mut env, error.to_string());
-            return 0;
-        }
+    let Ok(handle) = require_handle(handle, "search") else {
+        throw(&mut env, "invalid search handle");
+        return 0;
     };
+    let Ok(id) = u64::try_from(id) else {
+        throw(&mut env, "id must be >= 0");
+        return 0;
+    };
+    let Ok(text) = string_arg(&mut env, text) else { return 0; };
 
     let mut engines = lock(searches());
-    let Some(engine) = engines.get_mut(&(handle as u64)) else {
+    let Some(engine) = engines.get_mut(&handle) else {
         throw(&mut env, "invalid search engine handle");
         return 0;
     };
 
-    match engine.add(id as u64, &text) {
+    match engine.add(id, &text) {
         Ok(()) => 1,
         Err(error) => {
             throw(&mut env, error.to_string());
@@ -230,17 +239,25 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchAdd(
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchRemove(
-    _env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass,
     handle: jlong,
     id: jlong,
 ) -> jboolean {
-    searches()
-        .lock()
-        .expect("search mutex poisoned")
-        .get_mut(&(handle as u64))
-        .map(|engine| engine.remove(id as u64))
-        .unwrap_or(false) as jboolean
+    let Ok(handle) = require_handle(handle, "search") else {
+        throw(&mut env, "invalid search handle");
+        return 0;
+    };
+    let Ok(id) = u64::try_from(id) else {
+        throw(&mut env, "id must be >= 0");
+        return 0;
+    };
+    let mut engines = lock(searches());
+    let Some(engine) = engines.get_mut(&handle) else {
+        throw(&mut env, "invalid search handle");
+        return 0;
+    };
+    engine.remove(id) as jboolean
 }
 
 #[unsafe(no_mangle)]
@@ -279,16 +296,18 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearch(
     query: JString,
     limit: jint,
 ) -> jstring {
-    let query: String = match env.get_string(&query) {
-        Ok(value) => value.into(),
-        Err(error) => {
-            throw(&mut env, error.to_string());
-            return std::ptr::null_mut();
-        }
+    let Ok(handle) = require_handle(handle, "search") else {
+        throw(&mut env, "invalid search handle");
+        return std::ptr::null_mut();
     };
+    let Ok(query) = string_arg(&mut env, query) else { return std::ptr::null_mut(); };
+    if limit < 0 {
+        throw(&mut env, "limit must be >= 0");
+        return std::ptr::null_mut();
+    }
 
     let engines = lock(searches());
-    let Some(engine) = engines.get(&(handle as u64)) else {
+    let Some(engine) = engines.get(&handle) else {
         throw(&mut env, "invalid search engine handle");
         return std::ptr::null_mut();
     };
@@ -326,11 +345,11 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeZipCreate(
 
     match ZipReader::open(path) {
         Ok(reader) => {
-            let id = next_id();
-            zips()
-                .lock()
-                .expect("zip mutex poisoned")
-                .insert(id, reader);
+            let Some(id) = next_id() else {
+                throw(&mut env, "native handle space exhausted");
+                return 0;
+            };
+            lock(zips()).insert(id, reader);
             id as jlong
         }
         Err(error) => {
@@ -346,10 +365,11 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeZipDestroy(
     _class: JClass,
     handle: jlong,
 ) {
-    zips()
-        .lock()
-        .expect("zip mutex poisoned")
-        .remove(&(handle as u64));
+    let Ok(handle) = require_handle(handle, "zip") else {
+        throw(&mut env, "invalid zip handle");
+        return;
+    };
+    lock(zips()).remove(&handle);
 }
 
 #[unsafe(no_mangle)]
@@ -358,8 +378,12 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeZipEntries(
     _class: JClass,
     handle: jlong,
 ) -> jstring {
+    let Ok(handle) = require_handle(handle, "zip") else {
+        throw(&mut env, "invalid zip handle");
+        return std::ptr::null_mut();
+    };
     let readers = lock(zips());
-    let Some(reader) = readers.get(&(handle as u64)) else {
+    let Some(reader) = readers.get(&handle) else {
         throw(&mut env, "invalid zip handle");
         return std::ptr::null_mut();
     };
