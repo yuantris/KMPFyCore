@@ -1,4 +1,5 @@
 use core_graph::{analyze, sample_checked, sample_parametric, sample_polar, GraphConfig};
+use core_calc::{CalculatorEngine, CalculatorMode, CalculationValue};
 use core_math::Expression;
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int};
@@ -49,6 +50,26 @@ pub extern "C" fn core_rs_eval_x(expression: *const c_char, x: c_double) -> c_do
 #[no_mangle]
 pub extern "C" fn core_rs_contains_variable(expression: *const c_char) -> bool {
     input(expression).ok().and_then(|s| Expression::compile(s).ok()).is_some_and(|e| e.contains_variable())
+}
+
+#[no_mangle]
+pub extern "C" fn core_rs_calculate(expression: *const c_char, mode: c_int) -> *mut c_char {
+    let result = (|| {
+        let expression = input(expression)?;
+        let mode = match mode {
+            0 => CalculatorMode::Basic,
+            1 => CalculatorMode::Scientific,
+            2 => CalculatorMode::Fraction,
+            _ => return Err("invalid calculator mode".to_string()),
+        };
+        let result = CalculatorEngine::evaluate(mode, expression).map_err(|e| e.to_string())?;
+        let value = match result.value {
+            CalculationValue::Real(v) => serde_json::json!({"type":"real","value":v}),
+            CalculationValue::Rational(v) => serde_json::json!({"type":"rational","numerator":v.numerator,"denominator":v.denominator,"value":v.to_f64()}),
+        };
+        Ok::<_, String>(value)
+    })();
+    result.map_or(std::ptr::null_mut(), json_ptr)
 }
 
 #[no_mangle]
