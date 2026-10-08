@@ -48,7 +48,8 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
     fun setExpression(value: String) { expression = value; clearResult(); justEvaluated = false }
     fun append(value: String) {
         val continuesResult = justEvaluated && value in listOf("+", "-", "*", "/", "^")
-        if (continuesResult) expression = result?.value?.toDisplayNumber() ?: expression + value else if (justEvaluated) expression = ""
+        val suffixResult = justEvaluated && value in listOf("!", "%", "^2")
+        if (continuesResult) expression = result?.value?.toDisplayNumber() ?: expression + value else if (suffixResult) expression = result?.value?.toDisplayNumber() ?: expression else if (justEvaluated) expression = ""
         expression += value
         clearResult()
         justEvaluated = false
