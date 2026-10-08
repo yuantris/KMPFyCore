@@ -11,3 +11,5 @@ mod graph;
 mod search;
 #[path = "../../android/src/binary.rs"]
 mod binary;
+#[path = "../../android/src/calc.rs"]
+mod calc;
