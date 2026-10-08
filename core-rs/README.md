@@ -42,24 +42,48 @@
 
 三角函数默认使用弧度。
 
+### core-graph
+
+独立于 `core-math` 的函数曲线采样层：
+
+- 自适应 screen-space 细分
+- finite/domain 检测
+- 渐近线/不连续区间自动断开
+- 资源上限保护
+- `sample_checked` 返回可传递的错误
+
 ### core-binary
 
-第一版提供 ZIP/APK 基础读取：
+ZIP/APK 基础读取：
 
 - ZIP entry 列表
+- `contains(name)`
 - APK 基础检查
-- entry 查询
+- APK entry 列表
 
 Manifest/AXML/DEX 解析留给后续版本。
 
 ### bindings/android
 
+JNI 按职责拆分为：
+
+```text
+src/
+├── lib.rs       # 模块入口
+├── support.rs   # handle / Mutex / JNI 参数与异常
+├── math.rs      # Expression
+├── graph.rs     # Graph
+├── search.rs    # SearchEngine
+└── binary.rs    # ZipReader / ApkReader
+```
+
 通过 JNI 暴露：
 
-- Expression
-- SearchEngine
-- ZipReader
-- APK 基础检查
+- Expression：常量求值、`f(x)`、变量检测
+- Graph：函数曲线采样
+- SearchEngine：add/remove/clear/size/search
+- ZipReader：entries/contains
+- ApkReader：isApk/entries
 
 ## 原则
 
