@@ -14,7 +14,7 @@ fn searches() -> &'static Mutex<HashMap<u64, SearchEngine>> {
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeSearchCreate(
-    _env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass,
 ) -> jlong {
     let Some(id) = next_id() else {
