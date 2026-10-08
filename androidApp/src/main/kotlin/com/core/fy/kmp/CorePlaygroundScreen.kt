@@ -197,27 +197,25 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    fun sample() {
+    suspend fun sampleNow() {
         if (canvasSize.width < 2 || canvasSize.height < 2) return
-        scope.launch {
-            loading = true
-            error = null
-            runCatching {
-                withContext(Dispatchers.Default) {
-                    CoreGraph.sample(
-                        expression, minX, maxX, minY, maxY,
-                        pixelWidth = canvasSize.width,
-                        pixelHeight = canvasSize.height,
-                    )
-                }
-            }.onSuccess { segments = it }
-                .onFailure { error = it.message ?: "绘图失败" }
-            loading = false
-        }
+        loading = true
+        error = null
+        runCatching {
+            withContext(Dispatchers.Default) {
+                CoreGraph.sample(
+                    expression, minX, maxX, minY, maxY,
+                    pixelWidth = canvasSize.width,
+                    pixelHeight = canvasSize.height,
+                )
+            }
+        }.onSuccess { segments = it }
+            .onFailure { error = it.message ?: "绘图失败" }
+        loading = false
     }
 
     LaunchedEffect(canvasSize, expression, minX, maxX, minY, maxY) {
-        if (canvasSize.width >= 2 && canvasSize.height >= 2) sample()
+        sampleNow()
     }
 
     LiquidGlassCard(backdrop, Modifier.fillMaxSize()) {
@@ -231,7 +229,7 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
                     label = { Text("f(x)") },
                 )
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = ::sample, enabled = !loading) {
+                Button(onClick = { scope.launch { sampleNow() } }, enabled = !loading) {
                     if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Text("绘制")
                 }
