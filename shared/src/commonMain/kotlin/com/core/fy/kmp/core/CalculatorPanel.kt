@@ -130,7 +130,7 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
                         CalculatorKey.Equals -> evaluate()
                         CalculatorKey.ToggleSign -> if (expression.isNotBlank()) setExpression("-(" + expression + ")")
                         CalculatorKey.Square -> if (expression.isNotBlank()) append("^2")
-                        CalculatorKey.Reciprocal -> if (expression.isNotBlank()) setExpression("inv(" + expression + ")")
+                        CalculatorKey.Reciprocal -> if (expression.isNotBlank()) setExpression(reciprocalLastOperand(expression))
                         is CalculatorKey.Text -> append(key.insert)
                     }
                 }
@@ -285,6 +285,8 @@ private fun CalculatorKey.label(): String = when (this) {
     CalculatorKey.Reciprocal -> "1/x"
     is CalculatorKey.Text -> label
 }
+
+private fun reciprocalLastOperand(input: String): String { val index = input.lastIndexOfAny(charArrayOf('+', '-', '*', '/', '^')); val prefix = if (index >= 0) input.substring(0, index + 1) else ""; val operand = input.substring(index + 1); return if (operand.isBlank()) input else prefix + "inv(" + operand + ")" }
 
 private fun autoCloseParentheses(input: String): String {
     var balance = 0
