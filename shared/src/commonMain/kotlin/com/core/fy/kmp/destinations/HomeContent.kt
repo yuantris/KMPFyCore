@@ -35,7 +35,7 @@ fun HomeContent(onNavigate: (CatalogDestination) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16f.dp)
     ) {
         BasicText(
-            "Backdrop Catalog",
+            "Core RS",
             Modifier.padding(16f.dp, 40f.dp, 16f.dp, 16f.dp),
             style = TextStyle(contentColor, 28f.sp, FontWeight.Medium)
         )
