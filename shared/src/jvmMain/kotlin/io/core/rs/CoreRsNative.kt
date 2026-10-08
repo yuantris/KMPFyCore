@@ -24,6 +24,16 @@ internal object CoreRsNative {
     @JvmStatic external fun nativeExpressionEvalX(expression: String, x: Double): Double
     @JvmStatic external fun nativeExpressionContainsVariable(expression: String): Boolean
 
+    @JvmStatic external fun nativeGraphAdvanced(
+        expression: String, secondExpression: String, mode: Int,
+        minX: Double, maxX: Double, minY: Double, maxY: Double,
+        minT: Double, maxT: Double, samples: Int, pixelWidth: Int, pixelHeight: Int,
+    ): String
+
+    @JvmStatic external fun nativeGraphAnalyze(
+        expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int,
+    ): String
+
     @JvmStatic external fun nativeGraph(
         expression: String,
         minX: Double,
