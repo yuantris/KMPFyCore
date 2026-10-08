@@ -39,8 +39,8 @@ impl GraphConfig {
         if !(2..=16_384).contains(&self.pixel_width) || !(2..=16_384).contains(&self.pixel_height) {
             return Err(CoreError::InvalidArgument("pixel size must be in 2..=16384".into()));
         }
-        if self.max_subdivision == 0 {
-            return Err(CoreError::InvalidArgument("max_subdivision must be > 0".into()));
+        if self.max_subdivision == 0 || self.max_subdivision > 24 {
+            return Err(CoreError::InvalidArgument("max_subdivision must be in 1..=24".into()));
         }
         if !self.pixel_error.is_finite() || self.pixel_error <= 0.0 {
             return Err(CoreError::InvalidArgument("pixel_error must be > 0".into()));
@@ -272,7 +272,7 @@ pub struct ParametricConfig {
     pub max_t: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct GraphAnalysis {
     pub zeroes: Vec<GraphPoint>,
     pub extrema: Vec<GraphPoint>,
@@ -420,7 +420,7 @@ impl ParamState<'_> {
 
 pub fn analyze(expr: &Expr, config: &GraphConfig) -> CoreResult<GraphAnalysis> {
     config.validate()?;
-    let n = config.samples.max(256);
+    let n = config.samples.clamp(256, 100_000);
     let step = (config.max_x - config.min_x) / (n - 1) as f64;
     let mut values: Vec<(f64, f64)> = Vec::with_capacity(n);
     for i in 0..n {
@@ -455,7 +455,7 @@ pub fn analyze(expr: &Expr, config: &GraphConfig) -> CoreResult<GraphAnalysis> {
         let (x2, y2) = pair[2];
         let d1 = y1 - y0;
         let d2 = y2 - y1;
-        if d1.signum() != 0.0 && d1.signum() != d2.signum() && y1.is_finite() {
+        if d1.signum() != 0.0 && d2.signum() != 0.0 && d1.signum() != d2.signum() && y1.is_finite() {
             extrema.push(GraphPoint { x: x1, y: y1 });
         }
         let _ = (x0, x2);
