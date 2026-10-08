@@ -4,6 +4,13 @@ import androidx.compose.runtime.Composable
 
 data class GraphPoint(val x: Double, val y: Double)
 data class GraphSegment(val points: List<GraphPoint>)
+
+enum class GraphMode { Cartesian, Polar, Parametric }
+
+data class GraphAnalysis(
+    val zeroes: List<GraphPoint>,
+    val extrema: List<GraphPoint>,
+)
 data class SearchResult(val id: Long, val score: Float, val text: String)
 data class ZipEntryInfo(val name: String, val compressedSize: Long, val uncompressedSize: Long, val isDirectory: Boolean)
 
@@ -12,6 +19,14 @@ expect object CoreRsPlatform {
     fun eval(expression: String, x: Double): Double
     fun containsVariable(expression: String): Boolean
     fun sampleGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int = 1200, pixelWidth: Int = 1200, pixelHeight: Int = 800): List<GraphSegment>
+    fun analyzeGraph(
+        expression: String,
+        minX: Double,
+        maxX: Double,
+        minY: Double,
+        maxY: Double,
+        samples: Int = 1200,
+    ): GraphAnalysis
     fun createSearch(): CoreSearch
     val sampleZipPath: String
     val apkPath: String
