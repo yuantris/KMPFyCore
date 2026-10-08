@@ -1,5 +1,5 @@
 use core_common::{CoreError, CoreResult};
-use core_math::{BinaryOp, Expr, Expression, UnaryOp};
+use core_math::{BinaryOp, Expr, Expression, Function, UnaryOp};
 
 pub fn evaluate(expression: &str) -> CoreResult<f64> {
     let expr = Expression::compile(expression)?;
@@ -21,6 +21,7 @@ fn validate(expr: &Expr) -> CoreResult<()> {
             validate(right)
         }
         Expr::Variable | Expr::VariableY | Expr::VariableT => Err(CoreError::InvalidArgument("basic calculator does not support variables".into())),
+        Expr::Function { function: Function::Percent, expr } => validate(expr),
         Expr::Function { .. } => Err(CoreError::InvalidArgument("basic calculator does not support scientific functions".into())),
     }
 }
