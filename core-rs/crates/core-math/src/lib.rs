@@ -27,7 +27,9 @@ pub enum Function {
 }
 
 impl Expr {
-    pub fn eval_x(&self, x: f64) -> f64 {
+    pub fn eval_x(&self, x: f64) -> f64 { self.eval_x_with_angle(x, AngleMode::Rad) }
+
+    pub fn eval_x_with_angle(&self, x: f64, angle: AngleMode) -> f64 {
         match self {
             Self::Number(v) | Self::Constant(v) => *v,
             Self::Variable => x,
@@ -51,12 +53,12 @@ impl Expr {
             Self::Function { function, expr } => {
                 let value = expr.eval_x(x);
                 match function {
-                    Function::Sin => value.sin(),
-                    Function::Cos => value.cos(),
-                    Function::Tan => value.tan(),
-                    Function::Asin => value.asin(),
-                    Function::Acos => value.acos(),
-                    Function::Atan => value.atan(),
+                    Function::Sin => angle.radians(value).sin(),
+                    Function::Cos => angle.radians(value).cos(),
+                    Function::Tan => angle.radians(value).tan(),
+                    Function::Asin => angle.from_radians(value.asin()),
+                    Function::Acos => angle.from_radians(value.acos()),
+                    Function::Atan => angle.from_radians(value.atan()),
                     Function::Sqrt => value.sqrt(),
                     Function::Abs => value.abs(),
                     Function::Ln => value.ln(),
@@ -66,7 +68,6 @@ impl Expr {
                     Function::Ceil => value.ceil(),
                     Function::Factorial => factorial(value),
                     Function::Reciprocal => 1.0 / value,
-                    Function::Factorial => factorial(value),
                 }
             }
         }
@@ -182,6 +183,14 @@ fn gcd_i64(mut a: u64, mut b: u64) -> u64 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AngleMode { Rad, Deg }
+
+impl AngleMode {
+    fn radians(self, value: f64) -> f64 { match self { Self::Rad => value, Self::Deg => value.to_radians() } }
+    fn from_radians(self, value: f64) -> f64 { match self { Self::Rad => value, Self::Deg => value.to_degrees() } }
+}
+
 pub enum Variable {
     X,
     Y,
@@ -191,7 +200,9 @@ pub enum Variable {
 impl Expr {
     pub fn eval_xy(&self, x: f64, y: f64) -> f64 { self.eval_vars(x, y, x) }
 
-    pub fn eval_vars(&self, x: f64, y: f64, t: f64) -> f64 {
+    pub fn eval_vars(&self, x: f64, y: f64, t: f64) -> f64 { self.eval_vars_with_angle(x, y, t, AngleMode::Rad) }
+
+    pub fn eval_vars_with_angle(&self, x: f64, y: f64, t: f64, angle: AngleMode) -> f64 {
         match self {
             Self::Number(v) | Self::Constant(v) => *v,
             Self::Variable => x,
@@ -213,9 +224,9 @@ impl Expr {
             Self::Function { function, expr } => {
                 let value = expr.eval_vars(x, y, t);
                 match function {
-                    Function::Sin => value.sin(), Function::Cos => value.cos(),
-                    Function::Tan => value.tan(), Function::Asin => value.asin(),
-                    Function::Acos => value.acos(), Function::Atan => value.atan(),
+                    Function::Sin => angle.radians(value).sin(), Function::Cos => angle.radians(value).cos(),
+                    Function::Tan => angle.radians(value).tan(), Function::Asin => angle.from_radians(value.asin()),
+                    Function::Acos => angle.from_radians(value.acos()), Function::Atan => angle.from_radians(value.atan()),
                     Function::Sqrt => value.sqrt(), Function::Abs => value.abs(),
                     Function::Ln => value.ln(), Function::Log => value.log10(),
                     Function::Exp => value.exp(), Function::Floor => value.floor(),
@@ -237,8 +248,13 @@ impl Expression {
         parser::parse(input)
     }
 
-    pub fn eval(input: &str) -> CoreResult<f64> {
-        Self::compile(input)?.eval_constant()
+    pub fn eval(input: &str) -> CoreResult<f64> { Self::eval_with_angle(input, AngleMode::Rad) }
+
+    pub fn eval_with_angle(input: &str, angle: AngleMode) -> CoreResult<f64> {
+        let expr = Self::compile(input)?;
+        if expr.contains_variable() { return Err(CoreError::InvalidArgument("expression contains variables".into())); }
+        let value = expr.eval_x_with_angle(0.0, angle);
+        value.is_finite().then_some(value).ok_or_else(|| CoreError::InvalidArgument("expression result is not finite".into()))
     }
 
     pub fn eval_x(input: &str, x: f64) -> CoreResult<f64> {
