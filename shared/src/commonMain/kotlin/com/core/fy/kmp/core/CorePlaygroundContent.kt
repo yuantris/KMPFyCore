@@ -192,199 +192,71 @@ private data class Viewport(
 
 @Composable
 private fun GraphPanel(backdrop: LayerBackdrop) {
-    var expression by remember { mutableStateOf("sin(x) + 0.2 * x") }
-    var segments by remember { mutableStateOf<List<GraphSegment>>(emptyList()) }
-    var viewport by remember { mutableStateOf(Viewport(-10.0, 10.0, -5.0, 5.0)) }
-    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var refreshKey by remember { mutableIntStateOf(0) }
-
-    // 关键改动：
-    // 1) viewport 不再是 LaunchedEffect 的 key——避免拖动时反复取消采样
-    // 2) snapshotFlow 把 viewport 变成一个流
-    // 3) conflate() 在采样忙时自动丢弃中间值，而不是取消进行中的采样
-    // 4) collect() 顺序处理，每次采样都会跑完，跑完后立刻拿最新 viewport 再采
-    LaunchedEffect(canvasSize, expression, refreshKey) {
-        snapshotFlow { viewport }
-            .conflate()
-            .collect { vp ->
-                if (canvasSize.width < 2 || canvasSize.height < 2) return@collect
-
-                loading = true
-                try {
-                    val result = withContext(Dispatchers.Default) {
-                        CoreRsPlatform.sampleGraph(
-                            expression,
-                            vp.minX, vp.maxX, vp.minY, vp.maxY,
-                            pixelWidth = canvasSize.width,
-                            pixelHeight = canvasSize.height,
-                        )
-                    }
-                    segments = result
-                    error = null
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    error = e.message ?: "绘图失败"
-                } finally {
-                    // 协程被取消时不要抢写 loading，避免与新协程竞争
-                    if (currentCoroutineContext().isActive) {
-                        loading = false
-                    }
-                }
-            }
-    }
-
+    data class FunctionItem(val id: Long, val expression: String, val secondExpression: String = "", val enabled: Boolean = true)
+    var functions by remember { mutableStateOf(listOf(FunctionItem(1, "sin(x) + 0.2*x"), FunctionItem(2, "0.5*cos(2*x)"))) }
+    var nextId by remember { mutableLongStateOf(3) }; var selectedId by remember { mutableLongStateOf(1) }
+    var mode by remember { mutableStateOf(GraphMode.Cartesian) }; var modeMenu by remember { mutableStateOf(false) }
+    var viewport by remember { mutableStateOf(Viewport(-10.0, 10.0, -6.0, 6.0)) }
+    var segments by remember { mutableStateOf<Map<Long, List<GraphSegment>>>(emptyMap()) }
+    var analysis by remember { mutableStateOf<GraphAnalysis?>(null) }; var cursor by remember { mutableStateOf<GraphPoint?>(null) }
+    var cursorValue by remember { mutableStateOf<Double?>(null) }; var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    var loading by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope(); val selected = functions.firstOrNull { it.id == selectedId }
+    fun sample() { scope.launch { if (canvasSize.width < 2 || canvasSize.height < 2) return@launch; loading = true; error = null
+        runCatching { withContext(Dispatchers.Default) { functions.filter { it.enabled }.associate { item -> item.id to CoreRsPlatform.sampleGraph(item.expression, viewport.minX, viewport.maxX, viewport.minY, viewport.maxY, 1600, canvasSize.width, canvasSize.height, mode, item.secondExpression, -10.0, 10.0) } } }
+            .onSuccess { segments = it }.onFailure { error = it.message }; loading = false } }
+    LaunchedEffect(canvasSize, viewport, functions, mode) { delay(60); sample() }
     LiquidGlassCard(backdrop, Modifier.fillMaxSize()) {
-        Column(
-            Modifier.padding(top = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                Modifier.padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = expression,
-                    onValueChange = { expression = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    label = { Text("f(x)") },
-                )
-                Spacer(Modifier.width(8.dp))
-                LiquidButton(
-                    onClick = { refreshKey++ },
-                    backdrop = backdrop,
-                    isInteractive = false,
-                    tint = Color(0xFFFF8D28)
-                ) {
-                    if (loading) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("绘制")
-                    }
-                }
+        Column(Modifier.fillMaxSize().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("函数绘图器", style = MaterialTheme.typography.titleLarge)
+                LiquidButton(onClick = { modeMenu = true }, backdrop = backdrop) { Text(mode.name) }
+                DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) { GraphMode.entries.forEach { candidate -> DropdownMenuItem(text = { Text(candidate.name) }, onClick = { mode = candidate; modeMenu = false }) } }
+                Spacer(Modifier.weight(1f))
+                LiquidButton(onClick = { viewport = Viewport(-10.0, 10.0, -6.0, 6.0); cursor = null; analysis = null }, backdrop = backdrop) { Text("重置") }
+                LiquidButton(onClick = { selected?.let { item -> scope.launch { runCatching { withContext(Dispatchers.Default) { CoreRsPlatform.analyzeGraph(item.expression, viewport.minX, viewport.maxX, viewport.minY, viewport.maxY, 2400) } }.onSuccess { analysis = it }.onFailure { error = it.message } } } }, backdrop = backdrop) { Text("分析") }
             }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            GraphCanvas(
-                segments = segments,
-                viewport = viewport,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .onSizeChanged { canvasSize = it },
-                onViewportChange = { dx, dy, scale ->
-                    viewport = viewport.transformed(dx, dy, scale)
-                },
-            )
+            Row(Modifier.padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                functions.forEach { item -> LiquidButton(onClick = { selectedId = item.id }, backdrop = backdrop) { Text(if (item.enabled) "● ${item.expression}" else "○ ${item.expression}") } }
+                LiquidButton(onClick = { val item = FunctionItem(nextId++, if (mode == GraphMode.Parametric) "cos(t)" else "x", if (mode == GraphMode.Parametric) "sin(t)" else ""); functions = functions + item; selectedId = item.id }, backdrop = backdrop) { Text("+ 函数") }
+            }
+            selected?.let { item -> Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(item.expression, { v -> functions = functions.map { if (it.id == item.id) it.copy(expression = v) else it } }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(if (mode == GraphMode.Polar) "r(t)" else if (mode == GraphMode.Parametric) "x(t)" else "y=f(x)") })
+                if (mode == GraphMode.Parametric) OutlinedTextField(item.secondExpression, { v -> functions = functions.map { if (it.id == item.id) it.copy(secondExpression = v) else it } }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("y(t)") })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LiquidButton(onClick = { functions = functions.map { if (it.id == item.id) it.copy(enabled = !it.enabled) else it } }, backdrop = backdrop) { Text(if (item.enabled) "隐藏" else "显示") }
+                    LiquidButton(onClick = { functions = functions.filterNot { it.id == item.id }; selectedId = functions.firstOrNull()?.id ?: 0 }, backdrop = backdrop) { Text("删除") }
+                    if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+            } }
+            error?.let { Text(it, Modifier.padding(horizontal = 14.dp), color = MaterialTheme.colorScheme.error) }
+            Box(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 8.dp).onSizeChanged { canvasSize = it }) {
+                GraphCanvas(segments, viewport, cursor, analysis, Modifier.fillMaxSize(), { dx, dy, scale -> viewport = viewport.transformed(dx, dy, scale) }, { point -> cursor = point; cursorValue = selected?.let { if (mode == GraphMode.Cartesian) CoreRsPlatform.eval(it.expression, point.x) else null } })
+            }
+            cursor?.let { Text("x=" + it.x + "   y=" + it.y + (cursorValue?.let { v -> "   f(x)=" + v } ?: ""), Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.labelMedium) }
+            analysis?.let { Text("零点: " + it.zeroes.take(8).joinToString { p -> p.x.toString() } + "    极值: " + it.extrema.take(8).joinToString { p -> "(" + p.x + ", " + p.y + ")" }, Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.labelSmall) }
         }
     }
 }
 
 @Composable
-private fun GraphCanvas(
-    segments: List<GraphSegment>,
-    viewport: Viewport,
-    modifier: Modifier,
-    onViewportChange: (Double, Double, Double) -> Unit,
-) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val currentOnViewportChange by rememberUpdatedState(onViewportChange)
-
-    Canvas(
-        modifier.pointerInput(Unit) {
-            detectTransformGestures { _, pan, zoom, _ ->
-                currentOnViewportChange(
-                    pan.x.toDouble(),
-                    pan.y.toDouble(),
-                    1.0 / zoom.coerceIn(0.7f, 1.5f),
-                )
-            }
+private fun GraphCanvas(segmentsByFunction: Map<Long, List<GraphSegment>>, viewport: Viewport, cursor: GraphPoint?, analysis: GraphAnalysis?, modifier: Modifier, onViewportChange: (Double, Double, Double) -> Unit, onCursor: (GraphPoint) -> Unit) {
+    val currentPan by rememberUpdatedState(onViewportChange); val currentCursor by rememberUpdatedState(onCursor); val primary = MaterialTheme.colorScheme.primary
+    Box(modifier.pointerInput(Unit) { detectTransformGestures { _, pan, zoom, _ -> currentPan(pan.x.toDouble(), pan.y.toDouble(), 1.0 / zoom.coerceIn(0.7f, 1.5f)) } }.pointerInput(Unit) { detectTapGestures(onLongPress = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }, onTap = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }) }) {
+        Canvas(Modifier.fillMaxSize()) {
+            fun sx(x: Double) = ((x - viewport.minX) / viewport.width * size.width).toFloat(); fun sy(y: Double) = ((viewport.maxY - y) / viewport.height * size.height).toFloat(); val step = niceStep(viewport.width / 10.0)
+            var gx = floor(viewport.minX / step) * step; while (gx <= viewport.maxX) { drawLine(primary.copy(alpha = .10f), Offset(sx(gx), 0f), Offset(sx(gx), size.height)); gx += step }
+            var gy = floor(viewport.minY / step) * step; while (gy <= viewport.maxY) { drawLine(primary.copy(alpha = .10f), Offset(0f, sy(gy)), Offset(size.width, sy(gy))); gy += step }
+            if (viewport.minX <= 0 && viewport.maxX >= 0) drawLine(primary.copy(alpha = .35f), Offset(sx(0.0), 0f), Offset(sx(0.0), size.height), 2f)
+            if (viewport.minY <= 0 && viewport.maxY >= 0) drawLine(primary.copy(alpha = .35f), Offset(0f, sy(0.0)), Offset(size.width, sy(0.0)), 2f)
+            segmentsByFunction.values.forEachIndexed { index, list -> list.forEach { segment -> if (segment.points.size >= 2) { val path = Path(); segment.points.forEachIndexed { i, point -> val x = sx(point.x); val y = sy(point.y); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, primary.copy(alpha = (1f - index * .12f).coerceAtLeast(.35f)), style = Stroke(width = 4f, cap = StrokeCap.Round)) } } }
+            analysis?.zeroes?.forEach { drawCircle(primary, 5f, Offset(sx(it.x), sy(it.y))) }; analysis?.extrema?.forEach { drawCircle(MaterialTheme.colorScheme.error, 5f, Offset(sx(it.x), sy(it.y))) }
+            cursor?.let { drawLine(primary.copy(alpha = .45f), Offset(sx(it.x), 0f), Offset(sx(it.x), size.height), 2f); drawLine(primary.copy(alpha = .45f), Offset(0f, sy(it.y)), Offset(size.width, sy(it.y)), 2f); drawCircle(primary, 6f, Offset(sx(it.x), sy(it.y))) }
         }
-    ) {
-        val minX = viewport.minX
-        val maxX = viewport.maxX
-        val minY = viewport.minY
-        val maxY = viewport.maxY
-        if (maxX <= minX || maxY <= minY) return@Canvas
-
-        val sx = size.width / (maxX - minX).toFloat()
-        val sy = size.height / (maxY - minY).toFloat()
-
-        fun screenX(x: Double) = ((x - minX) * sx).toFloat()
-        fun screenY(y: Double) = (size.height - (y - minY) * sy).toFloat()
-
-        clipRect {
-            val step = niceStep((maxX - minX) / 10.0)
-
-            var gx = floor(minX / step) * step
-            while (gx <= maxX) {
-                drawLine(
-                    Color.White.copy(alpha = 0.30f),
-                    Offset(screenX(gx), 0f),
-                    Offset(screenX(gx), size.height)
-                )
-                gx += step
-            }
-
-            var gy = floor(minY / step) * step
-            while (gy <= maxY) {
-                drawLine(
-                    Color.White.copy(alpha = 0.30f),
-                    Offset(0f, screenY(gy)),
-                    Offset(size.width, screenY(gy))
-                )
-                gy += step
-            }
-
-            if (minX <= 0.0 && maxX >= 0.0) {
-                drawLine(
-                    Color.Black.copy(alpha = 0.45f),
-                    Offset(screenX(0.0), 0f),
-                    Offset(screenX(0.0), size.height),
-                    2f
-                )
-            }
-            if (minY <= 0.0 && maxY >= 0.0) {
-                drawLine(
-                    Color.Black.copy(alpha = 0.45f),
-                    Offset(0f, screenY(0.0)),
-                    Offset(size.width, screenY(0.0)),
-                    2f
-                )
-            }
-
-            segments.forEach { segment ->
-                if (segment.points.size < 2) return@forEach
-                val path = Path()
-                segment.points.forEachIndexed { index, point ->
-                    val screen = Offset(screenX(point.x), screenY(point.y))
-                    if (index == 0) {
-                        path.moveTo(screen.x, screen.y)
-                    } else {
-                        path.lineTo(screen.x, screen.y)
-                    }
-                }
-                drawPath(path, primaryColor, style = Stroke(width = 6f, cap = StrokeCap.Round))
-            }
-        }
+        Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(viewport.minX.toString(), style = MaterialTheme.typography.labelSmall); Text("x", style = MaterialTheme.typography.labelSmall); Text(viewport.maxX.toString(), style = MaterialTheme.typography.labelSmall) }
+        Column(Modifier.align(Alignment.CenterStart).padding(6.dp), verticalArrangement = Arrangement.SpaceBetween) { Text(viewport.maxY.toString(), style = MaterialTheme.typography.labelSmall); Text("y", style = MaterialTheme.typography.labelSmall); Text(viewport.minY.toString(), style = MaterialTheme.typography.labelSmall) }
     }
 }
-
-private fun niceStep(raw: Double): Double {
-    val safe = raw.coerceAtLeast(1e-9)
-    val exponent = floor(log10(safe))
-    val fraction = safe / 10.0.pow(exponent)
-    val nice = when {
-        fraction < 1.5 -> 1.0
-        fraction < 3.0 -> 2.0
-        fraction < 7.0 -> 5.0
-        else -> 10.0
-    }
-    return nice * 10.0.pow(exponent)
-}
-
 @Composable
 private fun SearchPanel(backdrop: LayerBackdrop) {
     val engine = remember { CoreRsPlatform.createSearch() }
