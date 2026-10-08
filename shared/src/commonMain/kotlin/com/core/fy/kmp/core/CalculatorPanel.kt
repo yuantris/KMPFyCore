@@ -37,11 +37,18 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
     var history by remember { mutableStateOf<List<CalculatorHistoryItem>>(emptyList()) }
     var showHistory by remember { mutableStateOf(false) }
     var evaluating by remember { mutableStateOf(false) }
+    var justEvaluated by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun clearResult() { result = null; error = null }
-    fun setExpression(value: String) { expression = value; clearResult() }
-    fun append(value: String) { setExpression(expression + value) }
+    fun setExpression(value: String) { expression = value; clearResult(); justEvaluated = false }
+    fun append(value: String) {
+        val continuesResult = justEvaluated && value in listOf("+", "-", "*", "/", "^")
+        if (continuesResult) expression = result?.value?.toDisplayNumber() ?: expression + value else if (justEvaluated) expression = ""
+        expression += value
+        clearResult()
+        justEvaluated = false
+    }
 
     fun evaluate() {
         if (expression.isBlank() || evaluating) return
@@ -53,6 +60,7 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
             }.onSuccess { value ->
                 result = value
                 val display = value.displayText()
+                justEvaluated = true
                 history = listOf(
                     CalculatorHistoryItem(expression, display, history.maxOfOrNull { it.id }?.plus(1) ?: 1),
                 ) + history.filterNot { it.expression == expression }.take(49)
@@ -194,7 +202,7 @@ private fun HistoryView(
 private fun calculatorKeys(mode: CalculatorMode): List<List<CalculatorKey>> {
     fun t(label: String, insert: String = label) = CalculatorKey.Text(label, insert)
     val basic = listOf(
-        listOf(CalculatorKey.Clear, CalculatorKey.Delete, t("%"), t("÷", "/")),
+        listOf(CalculatorKey.Clear, CalculatorKey.Delete, t("mod", "%"), t("÷", "/")),
         listOf(t("7"), t("8"), t("9"), t("×", "*")),
         listOf(t("4"), t("5"), t("6"), t("−", "-")),
         listOf(t("1"), t("2"), t("3"), t("+")),
