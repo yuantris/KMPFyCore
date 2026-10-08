@@ -1,4 +1,5 @@
 use core_calc::{CalculationValue, CalculatorEngine, CalculatorMode};
+use core_math::AngleMode;
 use jni::objects::{JClass, JString};
 use jni::sys::jstring;
 use jni::JNIEnv;
@@ -6,7 +7,7 @@ use crate::support::{string_arg, throw};
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeCalculate(
-    mut env: JNIEnv, _class: JClass, expression: JString, mode: i32,
+    mut env: JNIEnv, _class: JClass, expression: JString, mode: i32, angle: i32,
 ) -> jstring {
     let expression = match string_arg(&mut env, expression) {
         Ok(value) => value,
@@ -21,7 +22,8 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeCalculate(
             return std::ptr::null_mut();
         }
     };
-    match CalculatorEngine::evaluate(mode, &expression) {
+    let angle = match angle { 0 => AngleMode::Rad, 1 => AngleMode::Deg, _ => { throw(&mut env, "invalid angle mode".to_string()); return std::ptr::null_mut(); } };
+    match CalculatorEngine::evaluate_with_angle(mode, &expression, angle) {
         Ok(result) => {
             let json = match result.value {
                 CalculationValue::Real(value) => format!(r#"{{"type":"real","value":{value}}}"#),
