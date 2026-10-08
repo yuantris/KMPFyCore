@@ -8,6 +8,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":core-rs-android"))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.coroutinesCore)
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
 }
