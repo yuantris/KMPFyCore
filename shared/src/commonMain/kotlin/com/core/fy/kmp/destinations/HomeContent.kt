@@ -41,6 +41,9 @@ fun HomeContent(onNavigate: (CatalogDestination) -> Unit) {
         )
 
         Column {
+            Subtitle("Core")
+            ListItem({ onNavigate(CatalogDestination.CorePlayground) }, "Core RS Playground")
+
             Subtitle("Liquid glass components")
             ListItem({ onNavigate(CatalogDestination.Buttons) }, "Buttons")
             ListItem({ onNavigate(CatalogDestination.Toggle) }, "Toggle")
