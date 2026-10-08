@@ -4,7 +4,7 @@ internal object CoreRsNative {
     init { System.loadLibrary("core_rs_android") }
 
     @JvmStatic external fun nativeExpressionEval(expression: String): Double
-    @JvmStatic external fun nativeGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int): String
+    @JvmStatic external fun nativeGraph(expression: String, minX: Double, maxX: Double, minY: Double, maxY: Double, samples: Int, pixelWidth: Int, pixelHeight: Int): String
     @JvmStatic external fun nativeSearchCreate(): Long
     @JvmStatic external fun nativeSearchDestroy(handle: Long)
     @JvmStatic external fun nativeSearchAdd(handle: Long, id: Long, text: String): Boolean
