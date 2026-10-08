@@ -54,6 +54,7 @@ impl GraphSampler {
         let mut segments = Vec::new();
         let mut current = Vec::new();
         let mut previous = None;
+        let mut discontinuities = 0usize;
 
         for index in 0..config.samples {
             let x = if index + 1 == config.samples { config.max_x } else { config.min_x + step * index as f64 };
@@ -69,6 +70,7 @@ impl GraphSampler {
                         previous = Some(right);
                     } else {
                         flush(&mut segments, &mut current);
+                        discontinuities += 1;
                         current.clear();
                         current.push(right);
                         previous = Some(right);
@@ -76,6 +78,7 @@ impl GraphSampler {
                 }
                 (Some(_), None) => {
                     flush(&mut segments, &mut current);
+                    discontinuities += 1;
                     current.clear();
                     previous = None;
                 }
@@ -84,7 +87,6 @@ impl GraphSampler {
         }
 
         flush(&mut segments, &mut current);
-        let discontinuities = segments.len().saturating_sub(1);
         GraphResult { segments, evaluated_points: state.evaluated_points, discontinuities }
     }
 }
@@ -114,7 +116,9 @@ impl State<'_> {
         let screen_jump = (right_y - left_y).abs();
 
         if midpoint_error <= self.config.pixel_error && screen_jump <= self.config.max_screen_jump { return true; }
-        if depth >= self.config.max_subdivision { return false; }
+        if depth >= self.config.max_subdivision {
+            return midpoint_error <= self.config.pixel_error;
+        }
 
         let mut left_mids = Vec::new();
         if !self.refine(left, midpoint, depth + 1, &mut left_mids) { return false; }
