@@ -45,7 +45,7 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeZipCreate(
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeZipDestroy(
-    _env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass,
     handle: jlong,
 ) {
