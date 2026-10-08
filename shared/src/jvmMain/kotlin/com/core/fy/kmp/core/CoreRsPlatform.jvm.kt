@@ -18,9 +18,9 @@ actual object CoreRsPlatform {
         return CoreRsNative.nativeExpressionEvalX(expression, x)
     }
 
-    actual fun calculate(expression: String, mode: CalculatorMode): CalculationResult {
+    actual fun calculate(expression: String, mode: CalculatorMode, angleMode: CalculatorAngleMode): CalculationResult {
         require(expression.isNotBlank()) { "expression must not be blank" }
-        val root = JSONObject(CoreRsNative.nativeCalculate(expression, mode.ordinal))
+        val root = JSONObject(CoreRsNative.nativeCalculate(expression, mode.ordinal, angleMode.ordinal))
         return CalculationResult(
             type = root.optString("type"),
             value = root.optDouble("value"),
