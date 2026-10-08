@@ -20,9 +20,9 @@ impl Parser {
     fn parse_multiplicative(&mut self) -> CoreResult<Expr> {
         let mut expr = self.parse_unary()?;
         loop {
-            let op = match self.peek() { Token::Star => Some(BinaryOp::Multiply), Token::Slash => Some(BinaryOp::Divide), Token::Percent => Some(BinaryOp::Modulo), t if starts_primary(t) => Some(BinaryOp::Multiply), _ => None };
+            let op = match self.peek() { Token::Star => Some(BinaryOp::Multiply), Token::Slash => Some(BinaryOp::Divide), t if starts_primary(t) => Some(BinaryOp::Multiply), _ => None };
             let Some(op) = op else { break };
-            if matches!(self.peek(), Token::Star | Token::Slash | Token::Percent) { self.consume(); }
+            if matches!(self.peek(), Token::Star | Token::Slash) { self.consume(); }
             let rhs = self.parse_unary()?; expr = Expr::Binary { op, left: Box::new(expr), right: Box::new(rhs) };
         }
         Ok(expr)
