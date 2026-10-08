@@ -37,6 +37,7 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
     var history by remember { mutableStateOf<List<CalculatorHistoryItem>>(emptyList()) }
     var showHistory by remember { mutableStateOf(false) }
     var evaluating by remember { mutableStateOf(false) }
+    var memory by remember { mutableStateOf(0.0) }
     var justEvaluated by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -99,6 +100,20 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
                 )
             } else {
                 CalculatorDisplay(expression, result, error, evaluating, Modifier.weight(1f))
+                if (mode != CalculatorMode.Fraction) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("MC", "MR", "M+", "M-").forEach { action ->
+                            LiquidButton(onClick = {
+                                when (action) {
+                                    "MC" -> memory = 0.0
+                                    "MR" -> append(memory.toDisplayNumber())
+                                    "M+" -> result?.let { memory += it.value }
+                                    "M-" -> result?.let { memory -= it.value }
+                                }
+                            }, backdrop = backdrop, modifier = Modifier.weight(1f)) { Text(action) }
+                        }
+                    }
+                }
                 CalculatorKeyboard(calculatorKeys(mode), backdrop) { key ->
                     when (key) {
                         CalculatorKey.Clear -> setExpression("")
@@ -221,6 +236,7 @@ private fun calculatorKeys(mode: CalculatorMode): List<List<CalculatorKey>> {
     }
     return listOf(
         listOf(t("sin("), t("cos("), t("tan("), t("√", "sqrt("), t("xʸ", "^")),
+        listOf(t("x²", "^2"), t("1/x", "1/("), t("fact(", "factorial("), t("ln("), t("log(")),
         listOf(t("asin("), t("acos("), t("atan("), t("ln("), t("log(")),
         listOf(t("abs("), t("exp("), t("floor("), t("ceil("), t("π", "pi")),
         listOf(t("e"), t("("), t(")"), t("%"), t("÷", "/")),
