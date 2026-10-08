@@ -1,5 +1,5 @@
 use core_binary::{ApkReader, ZipReader};
-use core_math::Expression;
+use core_math::{Expression, GraphConfig};
 use core_search::SearchEngine;
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jdouble, jint, jlong, jstring};
@@ -26,6 +26,15 @@ fn throw(env: &mut JNIEnv<'_>, message: impl Into<String>) { let _ = env.throw_n
 pub extern "system" fn Java_io_corer_rs_CoreRsNative_nativeExpressionEval(mut env: JNIEnv, _class: JClass, expression: JString) -> jdouble {
     let expression: String = match env.get_string(&expression) { Ok(v) => v.into(), Err(e) => { throw(&mut env, e.to_string()); return f64::NAN; } };
     match Expression::eval(&expression) { Ok(v) => v, Err(e) => { throw(&mut env, e.to_string()); f64::NAN } }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_io_corer_rs_CoreRsNative_nativeGraph(mut env: JNIEnv, _class: JClass, expression: JString, min_x: jdouble, max_x: jdouble, min_y: jdouble, max_y: jdouble, samples: jint) -> jstring {
+    let expression: String = match env.get_string(&expression) { Ok(v) => v.into(), Err(e) => { throw(&mut env, e.to_string()); return std::ptr::null_mut(); } };
+    let config = GraphConfig { min_x, max_x, min_y, max_y, samples: samples.max(64) as usize, jump_factor: 24.0 };
+    let segments = match Expression::graph(&expression, config) { Ok(v) => v, Err(e) => { throw(&mut env, e.to_string()); return std::ptr::null_mut(); } };
+    let payload: Vec<Vec<Vec<f64>>> = segments.into_iter().map(|s| s.points.into_iter().map(|p| vec![p.x, p.y]).collect()).collect();
+    match serde_json::to_string(&payload) { Ok(json) => match env.new_string(json) { Ok(v) => v.into_raw(), Err(e) => { throw(&mut env, e.to_string()); std::ptr::null_mut() } }, Err(e) => { throw(&mut env, e.to_string()); std::ptr::null_mut() } }
 }
 
 #[no_mangle]
