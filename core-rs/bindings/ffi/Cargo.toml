@@ -1,0 +1,14 @@
+[package]
+name = "core-rs-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+core-common.workspace = true
+core-math.workspace = true
+core-graph.workspace = true
+serde_json.workspace = true
