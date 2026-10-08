@@ -1,3 +1,4 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -33,6 +34,7 @@ kotlin {
     
     sourceSets {
         androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
         }
@@ -45,12 +47,28 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+
+            implementation(libs.liquid.glass)
+            implementation(libs.kyant.shapes)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
     }
 }
+
+compose.desktop {
+    application {
+        mainClass = "com.core.fy.kmp.MainKt"
+
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "com.core.fy.kmp"
+            packageVersion = "1.0.0"
+        }
+    }
+}
+
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
