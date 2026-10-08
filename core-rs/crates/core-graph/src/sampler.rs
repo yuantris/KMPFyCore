@@ -52,7 +52,7 @@ impl GraphConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct GraphPoint { pub x: f64, pub y: f64 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -272,7 +272,7 @@ pub struct ParametricConfig {
     pub max_t: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct GraphAnalysis {
     pub zeroes: Vec<GraphPoint>,
     pub extrema: Vec<GraphPoint>,
