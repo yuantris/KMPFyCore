@@ -1,6 +1,6 @@
 use core_graph::{analyze, sample_checked, sample_parametric, sample_polar, GraphConfig};
 use core_calc::{CalculatorEngine, CalculatorMode, CalculationValue};
-use core_math::Expression;
+use core_math::{AngleMode, Expression};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int};
 
@@ -53,7 +53,10 @@ pub extern "C" fn core_rs_contains_variable(expression: *const c_char) -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn core_rs_calculate(expression: *const c_char, mode: c_int) -> *mut c_char {
+pub extern "C" fn core_rs_calculate(expression: *const c_char, mode: c_int) -> *mut c_char { core_rs_calculate_with_angle(expression, mode, 0) }
+
+#[no_mangle]
+pub extern "C" fn core_rs_calculate_with_angle(expression: *const c_char, mode: c_int, angle: c_int) -> *mut c_char {
     let result = (|| {
         let expression = input(expression)?;
         let mode = match mode {
@@ -62,7 +65,8 @@ pub extern "C" fn core_rs_calculate(expression: *const c_char, mode: c_int) -> *
             2 => CalculatorMode::Fraction,
             _ => return Err("invalid calculator mode".to_string()),
         };
-        let result = CalculatorEngine::evaluate(mode, expression).map_err(|e| e.to_string())?;
+        let angle = match angle { 0 => AngleMode::Rad, 1 => AngleMode::Deg, _ => return Err("invalid angle mode".to_string()) };
+        let result = CalculatorEngine::evaluate_with_angle(mode, expression, angle).map_err(|e| e.to_string())?
         let value = match result.value {
             CalculationValue::Real(v) => serde_json::json!({"type":"real","value":v}),
             CalculationValue::Rational(v) => serde_json::json!({"type":"rational","numerator":v.numerator,"denominator":v.denominator,"value":v.to_f64()}),
