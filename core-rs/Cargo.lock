@@ -109,6 +109,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-rs-ffi"
+version = "0.1.0"
+dependencies = [
+ "core-graph",
+ "core-math",
+ "serde_json",
+]
+
+[[package]]
 name = "core-search"
 version = "0.1.0"
 dependencies = [
