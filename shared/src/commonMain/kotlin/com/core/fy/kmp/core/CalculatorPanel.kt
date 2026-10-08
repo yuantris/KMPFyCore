@@ -236,7 +236,7 @@ private fun calculatorKeys(mode: CalculatorMode): List<List<CalculatorKey>> {
     }
     return listOf(
         listOf(t("sin("), t("cos("), t("tan("), t("√", "sqrt("), t("xʸ", "^")),
-        listOf(t("x²", "^2"), t("1/x", "1/("), t("fact(", "factorial("), t("ln("), t("log(")),
+        listOf(t("x²", "^2"), t("1/x", "inv("), t("fact(", "factorial("), t("ln("), t("log(")),
         listOf(t("asin("), t("acos("), t("atan("), t("ln("), t("log(")),
         listOf(t("abs("), t("exp("), t("floor("), t("ceil("), t("π", "pi")),
         listOf(t("e"), t("("), t(")"), t("%"), t("÷", "/")),
