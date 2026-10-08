@@ -25,7 +25,8 @@ impl<'a> State<'a>{
  fn refine(&mut self,a:GraphPoint,b:GraphPoint,depth:u32,mids:&mut Vec<GraphPoint>)->bool{
     let mx=a.x+(b.x-a.x)*0.5;if mx==a.x||mx==b.x{return self.safe(a,b)} let Some(m)=self.eval(mx)else{return false};
     let (_,ay)=self.screen(a);let (_,my)=self.screen(m);let (_,by)=self.screen(b);let err=(my-(ay+by)*0.5).abs();let jump=(by-ay).abs();
-    if err<=self.cfg.pixel_error&&jump<=self.cfg.max_screen_jump{return true} if depth>=self.cfg.max_subdivision{return false}
+    if err<=self.cfg.pixel_error&&jump<=self.cfg.max_screen_jump{return true}
+    if depth>=self.cfg.max_subdivision{return err<=self.cfg.pixel_error}
     let mut lm=Vec::new();if !self.refine(a,m,depth+1,&mut lm){return false} let mut rm=Vec::new();if !self.refine(m,b,depth+1,&mut rm){return false} mids.extend(lm);mids.push(m);mids.extend(rm);true
  }
  fn safe(&self,a:GraphPoint,b:GraphPoint)->bool{let(_,ay)=self.screen(a);let(_,by)=self.screen(b);(by-ay).abs()<=self.cfg.max_screen_jump}
