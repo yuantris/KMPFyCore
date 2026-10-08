@@ -1,6 +1,6 @@
 package io.core.rs
 
-internal object CoreRsNative {
+object CoreRsNative {
     init {
         System.loadLibrary("core_rs_android")
     }
