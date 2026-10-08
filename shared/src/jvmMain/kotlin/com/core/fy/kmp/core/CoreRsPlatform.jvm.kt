@@ -40,15 +40,10 @@ actual object CoreRsPlatform {
         require(expression.isNotBlank()) { "expression must not be blank" }
 
         val root = JSONArray(
-            CoreRsNative.nativeGraph(
-                expression,
-                minX,
-                maxX,
-                minY,
-                maxY,
-                samples,
-                pixelWidth,
-                pixelHeight,
+            CoreRsNative.nativeGraphAdvanced(
+                expression, secondExpression, mode.ordinal,
+                minX, maxX, minY, maxY, minT, maxT,
+                samples, pixelWidth, pixelHeight,
             )
         )
 
