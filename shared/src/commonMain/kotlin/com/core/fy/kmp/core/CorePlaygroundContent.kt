@@ -111,22 +111,26 @@ private fun MathPanel(backdrop: LayerBackdrop) {
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         LiquidButton(onClick = {
-                            error = null
-                            runCatching {
-                                scope.launch(Dispatchers.Default) {
-                                    CoreRsPlatform.eval(expression)
-                                }
-                            }.onSuccess { result = "constant = " + it }
-                                .onFailure { error = it.message }
+                            scope.launch {
+                                error = null
+                                runCatching {
+                                    withContext(Dispatchers.Default) {
+                                        CoreRsPlatform.eval(expression)
+                                    }
+                                }.onSuccess { result = "constant = " + it }
+                                    .onFailure { error = it.message }
+                            }
                         }, backdrop = backdrop, tint = Color(0xFFFF8D28)) { Text("常量求值") }
                         LiquidButton(onClick = {
-                            error = null
-                            runCatching {
-                                scope.launch(Dispatchers.Default) {
-                                    CoreRsPlatform.eval(expression, x)
-                                }
-                            }.onSuccess { result = "f(" + x + ") = " + it }
-                                .onFailure { error = it.message }
+                            scope.launch {
+                                error = null
+                                runCatching {
+                                    withContext(Dispatchers.Default) {
+                                        CoreRsPlatform.eval(expression, x)
+                                    }
+                                }.onSuccess { result = "f(" + x + ") = " + it }
+                                    .onFailure { error = it.message }
+                            }
                         }, backdrop = backdrop) { Text("f(x)") }
                     }
                     OutlinedTextField(
