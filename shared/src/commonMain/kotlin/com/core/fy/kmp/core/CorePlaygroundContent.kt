@@ -249,14 +249,24 @@ private data class Viewport(
     val width: Double get() = maxX - minX
     val height: Double get() = maxY - minY
 
-    fun transformed(dx: Double, dy: Double, scale: Double): Viewport {
-        val w = width
-        val h = height
-        val nw = (w * scale).coerceIn(0.05, 200.0)
-        val nh = (h * scale).coerceIn(0.05, 200.0)
-        val cx = (minX + maxX) / 2 - dx * w / 500.0
-        val cy = (minY + maxY) / 2 + dy * h / 500.0
-        return Viewport(cx - nw / 2, cx + nw / 2, cy - nh / 2, cy + nh / 2)
+    fun transformed(
+        panX: Double,
+        panY: Double,
+        scale: Double,
+        anchorX: Double = 0.5,
+        anchorY: Double = 0.5,
+    ): Viewport {
+        val oldWidth = width
+        val oldHeight = height
+        val newWidth = (oldWidth * scale).coerceIn(0.05, 200.0)
+        val newHeight = (oldHeight * scale).coerceIn(0.05, 200.0)
+        val anchorWorldX = minX + oldWidth * anchorX.coerceIn(0.0, 1.0)
+        val anchorWorldY = maxY - oldHeight * anchorY.coerceIn(0.0, 1.0)
+        val panWorldX = panX * oldWidth / 500.0
+        val panWorldY = panY * oldHeight / 500.0
+        val newMinX = anchorWorldX - newWidth * anchorX.coerceIn(0.0, 1.0) - panWorldX
+        val newMaxY = anchorWorldY + newHeight * anchorY.coerceIn(0.0, 1.0) + panWorldY
+        return Viewport(newMinX, newMinX + newWidth, newMaxY - newHeight, newMaxY)
     }
 }
 
@@ -271,11 +281,29 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
     var analysis by remember { mutableStateOf<GraphAnalysis?>(null) }; var cursor by remember { mutableStateOf<GraphPoint?>(null) }
     var cursorValue by remember { mutableStateOf<Double?>(null) }; var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     var loading by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope(); val selected = functions.firstOrNull { it.id == selectedId }
-    fun sample() { scope.launch { if (canvasSize.width < 2 || canvasSize.height < 2) return@launch; loading = true; error = null
-        runCatching { withContext(Dispatchers.Default) { functions.filter { it.enabled }.associate { item -> item.id to CoreRsPlatform.sampleGraph(item.expression, viewport.minX, viewport.maxX, viewport.minY, viewport.maxY, 1600, canvasSize.width, canvasSize.height, mode, item.secondExpression, -10.0, 10.0) } } }
-            .onSuccess { segments = it }.onFailure { error = it.message }; loading = false } }
-    LaunchedEffect(canvasSize, viewport, functions, mode) { delay(60); sample() }
+    val scope = rememberCoroutineScope()
+    val selected = functions.firstOrNull { it.id == selectedId }
+
+    LaunchedEffect(canvasSize, viewport, functions, mode) {
+        if (canvasSize.width < 2 || canvasSize.height < 2) return@LaunchedEffect
+        delay(60)
+        loading = true
+        error = null
+        runCatching {
+            withContext(Dispatchers.Default) {
+                functions.filter { it.enabled }.associate { item ->
+                    item.id to CoreRsPlatform.sampleGraph(
+                        item.expression,
+                        viewport.minX, viewport.maxX, viewport.minY, viewport.maxY,
+                        1600, canvasSize.width, canvasSize.height,
+                        mode, item.secondExpression, -10.0, 10.0,
+                    )
+                }
+            }
+        }.onSuccess { segments = it }
+            .onFailure { error = it.message }
+        loading = false
+    }
     LiquidGlassCard(backdrop, Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -301,7 +329,18 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
             } }
             error?.let { Text(it, Modifier.padding(horizontal = 14.dp), color = MaterialTheme.colorScheme.error) }
             Box(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 8.dp).onSizeChanged { canvasSize = it }) {
-                GraphCanvas(segments, viewport, cursor, analysis, Modifier.fillMaxSize(), { dx, dy, scale -> viewport = viewport.transformed(dx, dy, scale) }, { point -> cursor = point; cursorValue = selected?.let { if (mode == GraphMode.Cartesian) CoreRsPlatform.eval(it.expression, point.x) else null } })
+                GraphCanvas(
+                    segments, viewport, cursor, analysis, Modifier.fillMaxSize(),
+                    { centroid, dx, dy, scale ->
+                        val anchorX = if (canvasSize.width > 0) centroid.x.toDouble() / canvasSize.width else 0.5
+                        val anchorY = if (canvasSize.height > 0) centroid.y.toDouble() / canvasSize.height else 0.5
+                        viewport = viewport.transformed(dx, dy, scale, anchorX, anchorY)
+                    },
+                    { point ->
+                        cursor = point
+                        cursorValue = selected?.let { if (mode == GraphMode.Cartesian) CoreRsPlatform.eval(it.expression, point.x) else null }
+                    },
+                )
             }
             cursor?.let { Text("x=" + it.x + "   y=" + it.y + (cursorValue?.let { v -> "   f(x)=" + v } ?: ""), Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.labelMedium) }
             analysis?.let { Text("零点: " + it.zeroes.take(8).joinToString { p -> p.x.toString() } + "    极值: " + it.extrema.take(8).joinToString { p -> "(" + p.x + ", " + p.y + ")" }, Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.labelSmall) }
@@ -310,9 +349,9 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
 }
 
 @Composable
-private fun GraphCanvas(segmentsByFunction: Map<Long, List<GraphSegment>>, viewport: Viewport, cursor: GraphPoint?, analysis: GraphAnalysis?, modifier: Modifier, onViewportChange: (Double, Double, Double) -> Unit, onCursor: (GraphPoint) -> Unit) {
+private fun GraphCanvas(segmentsByFunction: Map<Long, List<GraphSegment>>, viewport: Viewport, cursor: GraphPoint?, analysis: GraphAnalysis?, modifier: Modifier, onViewportChange: (Offset, Double, Double, Double) -> Unit, onCursor: (GraphPoint) -> Unit) {
     val currentPan by rememberUpdatedState(onViewportChange); val currentCursor by rememberUpdatedState(onCursor); val primary = MaterialTheme.colorScheme.primary
-    Box(modifier.pointerInput(Unit) { detectTransformGestures { _, pan, zoom, _ -> currentPan(pan.x.toDouble(), pan.y.toDouble(), 1.0 / zoom.coerceIn(0.7f, 1.5f)) } }.pointerInput(Unit) { detectTapGestures(onLongPress = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }, onTap = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }) }) {
+    Box(modifier.pointerInput(Unit) { detectTransformGestures { centroid, pan, zoom, _ -> currentPan(centroid, pan.x.toDouble(), pan.y.toDouble(), 1.0 / zoom.coerceIn(0.7f, 1.5f)) } }.pointerInput(Unit) { detectTapGestures(onLongPress = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }, onTap = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }) }) {
         Canvas(Modifier.fillMaxSize()) {
             fun sx(x: Double) = ((x - viewport.minX) / viewport.width * size.width).toFloat(); fun sy(y: Double) = ((viewport.maxY - y) / viewport.height * size.height).toFloat(); val step = niceStep(viewport.width / 10.0)
             var gx = floor(viewport.minX / step) * step; while (gx <= viewport.maxX) { drawLine(primary.copy(alpha = .10f), Offset(sx(gx), 0f), Offset(sx(gx), size.height)); gx += step }
