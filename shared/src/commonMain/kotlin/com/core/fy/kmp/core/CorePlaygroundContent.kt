@@ -87,88 +87,157 @@ fun CorePlaygroundContent() {
 
 @Composable
 private fun MathPanel(backdrop: LayerBackdrop) {
-    var expression by remember { mutableStateOf("sqrt(9) + abs(-2) + pi") }
-    var x by remember { mutableDoubleStateOf(2.0) }
-    var result by remember { mutableStateOf<String?>(null) }
+    var mode by remember { mutableStateOf(CalculatorMode.Basic) }
+    var expression by remember { mutableStateOf("") }
+    var result by remember { mutableStateOf<CalculationResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-
+    var history by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            LiquidGlassCard(backdrop, Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Expression", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "lexer · parser · AST · constant / variable evaluation",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    OutlinedTextField(
-                        value = expression,
-                        onValueChange = { expression = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("表达式") },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LiquidButton(onClick = {
-                            scope.launch {
-                                error = null
-                                runCatching {
-                                    withContext(Dispatchers.Default) {
-                                        CoreRsPlatform.eval(expression)
-                                    }
-                                }.onSuccess { result = "constant = " + it }
-                                    .onFailure { error = it.message }
-                            }
-                        }, backdrop = backdrop, tint = Color(0xFFFF8D28)) { Text("常量求值") }
-                        LiquidButton(onClick = {
-                            scope.launch {
-                                error = null
-                                runCatching {
-                                    withContext(Dispatchers.Default) {
-                                        CoreRsPlatform.eval(expression, x)
-                                    }
-                                }.onSuccess { result = "f(" + x + ") = " + it }
-                                    .onFailure { error = it.message }
-                            }
-                        }, backdrop = backdrop) { Text("f(x)") }
-                    }
-                    OutlinedTextField(
-                        value = x.toString(),
-                        onValueChange = { it.toDoubleOrNull()?.let { value -> x = value } },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("x") },
-                    )
-                    LiquidButton(onClick = {
-                        runCatching { CoreRsPlatform.containsVariable(expression) }
-                            .onSuccess { result = "contains variable x = " + it }
-                            .onFailure { error = it.message }
-                    }, backdrop = backdrop, tint = Color(0xFF0088FF)) { Text("检查是否包含 x") }
-                    result?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    fun append(token: String) {
+        expression += token
+        error = null
+    }
+
+    fun calculate() {
+        if (expression.isBlank()) return
+        scope.launch {
+            error = null
+            runCatching {
+                withContext(Dispatchers.Default) {
+                    CoreRsPlatform.calculate(expression, mode)
+                }
+            }.onSuccess {
+                result = it
+                val display = if (it.type == "rational" && it.numerator != null && it.denominator != null) {
+                    "${it.numerator}/${it.denominator} = ${it.value}"
+                } else it.value.toString()
+                history = (listOf(expression to display) + history).take(8)
+            }.onFailure { error = it.message ?: "计算失败" }
+        }
+    }
+
+    val basicKeys = listOf("7","8","9","÷","4","5","6","×","1","2","3","−","0",".","("," )","+")
+    val scientificKeys = listOf("sin(","cos(","tan(","sqrt(","ln(","log(","abs(","π","^","exp(","floor(","ceil(","asin(","acos(","atan(","e")
+    val fractionKeys = listOf("7","8","9","/","4","5","6","×","1","2","3","−","0","(",")","+")
+    val keys = when (mode) {
+        CalculatorMode.Basic -> basicKeys
+        CalculatorMode.Scientific -> scientificKeys
+        CalculatorMode.Fraction -> fractionKeys
+    }
+
+    LiquidGlassCard(backdrop, Modifier.fillMaxSize()) {
+        Column(
+            Modifier.padding(18.dp).fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("计算器", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.weight(1f))
+                CalculatorMode.entries.forEach { candidate ->
+                    LiquidButton(
+                        onClick = { mode = candidate; result = null; error = null },
+                        backdrop = backdrop,
+                        tint = if (mode == candidate) MaterialTheme.colorScheme.primary else null,
+                    ) { Text(candidate.title()) }
                 }
             }
-        }
-        item {
-            LiquidGlassCard(backdrop, Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("Supported functions", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "sin · cos · tan · asin · acos · atan · sqrt · abs · ln · log10 · exp · floor · ceil",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Operators: +  −  ×  ÷  %  ^  · implicit multiplication · pi · e",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+
+            OutlinedTextField(
+                value = expression,
+                onValueChange = { expression = it; error = null },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4,
+                label = { Text("表达式") },
+                placeholder = { Text(if (mode == CalculatorMode.Fraction) "例如 1/2 + 1/6" else "例如 2sin(π/2) + 3^2") },
+            )
+
+            result?.let {
+                LiquidGlassCard(backdrop, Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("结果", style = MaterialTheme.typography.labelMedium)
+                        if (it.type == "rational" && it.numerator != null && it.denominator != null) {
+                            Text("${it.numerator}/${it.denominator}", style = MaterialTheme.typography.headlineMedium)
+                            Text("≈ ${it.value}", style = MaterialTheme.typography.bodyMedium)
+                        } else {
+                            Text(it.value.toString(), style = MaterialTheme.typography.headlineMedium)
+                        }
+                    }
+                }
+            }
+
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LiquidButton(onClick = { expression = ""; result = null; error = null }, backdrop = backdrop) { Text("AC") }
+                LiquidButton(
+                    onClick = { if (expression.isNotEmpty()) expression = expression.dropLast(1) },
+                    backdrop = backdrop,
+                ) { Text("DEL") }
+                LiquidButton(onClick = { append(" "); }, backdrop = backdrop) { Text("空格") }
+                LiquidButton(onClick = ::calculate, backdrop = backdrop, tint = MaterialTheme.colorScheme.primary) { Text("=") }
+            }
+
+            LazyColumn(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        keys.chunked(4).forEach { row ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                row.forEach { key ->
+                                    LiquidButton(
+                                        onClick = {
+                                            append(
+                                                when (key) {
+                                                    "π" -> "pi"
+                                                    "−" -> "-"
+                                                    "×" -> "*"
+                                                    "÷" -> "/"
+                                                    else -> key
+                                                }
+                                            )
+                                        },
+                                        backdrop = backdrop,
+                                        modifier = Modifier.weight(1f),
+                                    ) { Text(key) }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (history.isNotEmpty()) {
+                    item {
+                        Text("历史", style = MaterialTheme.typography.titleMedium)
+                    }
+                    items(history) { (input, output) ->
+                        LiquidGlassCard(backdrop, Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(input, style = MaterialTheme.typography.bodyMedium)
+                                Text(output, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+private fun CalculatorMode.title(): String = when (this) {
+    CalculatorMode.Basic -> "基础"
+    CalculatorMode.Scientific -> "科学"
+    CalculatorMode.Fraction -> "分数"
 }
 
 private data class Viewport(
