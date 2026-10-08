@@ -1,12 +1,10 @@
 package com.core.fy.kmp.core
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +17,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.core.fy.kmp.BackdropDemoScaffold
+import com.core.fy.kmp.components.LiquidBottomTab
+import com.core.fy.kmp.components.LiquidBottomTabs
 import com.core.fy.kmp.components.LiquidButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,13 +34,15 @@ private enum class CoreTab(val title: String, val symbol: String) {
 @Composable
 fun CorePlaygroundContent() {
     var tabIndex by remember { mutableIntStateOf(0) }
-    val backdrop = rememberLayerBackdrop()
-    Box(Modifier.fillMaxSize()) {
-        CoreBackdrop(backdrop)
+
+    BackdropDemoScaffold(Modifier.fillMaxSize()) { backdrop ->
         Column(
-            Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 16.dp)
+            Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+                .padding(top = 42.dp, bottom = 82.dp)
         ) {
-            Spacer(Modifier.height(42.dp))
             Text("Core RS", style = MaterialTheme.typography.headlineMedium)
             Text(
                 "Rust Native Playground",
@@ -49,7 +50,7 @@ fun CorePlaygroundContent() {
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
             )
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.weight(1f)) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (CoreTab.entries[tabIndex]) {
                     CoreTab.Math -> MathPanel(backdrop)
                     CoreTab.Graph -> GraphPanel(backdrop)
@@ -58,41 +59,21 @@ fun CorePlaygroundContent() {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LiquidBottomTabs(
+                selectedTabIndex = { tabIndex },
+                onTabSelected = { tabIndex = it },
+                backdrop = backdrop,
+                tabsCount = CoreTab.entries.size,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 CoreTab.entries.forEachIndexed { index, item ->
-                    LiquidButton(
-                        onClick = { tabIndex = index },
-                        backdrop = backdrop,
-                        modifier = Modifier.weight(1f),
-                        isInteractive = index == tabIndex,
-                    ) { Text(item.symbol + "  " + item.title) }
+                    LiquidBottomTab(onClick = { tabIndex = index }) {
+                        Text(item.symbol, style = MaterialTheme.typography.titleMedium)
+                        Text(item.title, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
-            }
-            Spacer(Modifier.height(8.dp))
         }
-    }
-}
-
-@Composable
-private fun CoreBackdrop(backdrop: LayerBackdrop) {
-    Box(
-        Modifier.fillMaxSize().layerBackdrop(backdrop).background(
-            Brush.linearGradient(
-                listOf(Color(0xFFF2F5FF), Color(0xFFE9F8F4), Color(0xFFF9F0FA))
-            )
-        )
-    ) {
-        Box(
-            Modifier.size(260.dp)
-                .background(Color(0xFF9BB8FF).copy(alpha = 0.25f), RoundedCornerShape(130.dp))
-                .align(Alignment.TopEnd)
-        )
-        Box(
-            Modifier.size(220.dp)
-                .background(Color(0xFF86E0C0).copy(alpha = 0.20f), RoundedCornerShape(110.dp))
-                .align(Alignment.BottomStart)
-        )
     }
 }
 
