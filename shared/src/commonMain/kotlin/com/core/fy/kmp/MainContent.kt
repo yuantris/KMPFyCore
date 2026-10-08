@@ -33,7 +33,7 @@ fun MainContent() {
     CompositionLocalProvider(
         LocalIndication provides ripple(color = if (isLightTheme) Color.Black else Color.White)
     ) {
-        var destination by rememberSaveable { mutableStateOf(CatalogDestination.CorePlayground) }
+        var destination by rememberSaveable { mutableStateOf(CatalogDestination.Home) }
 
         when (destination) {
             CatalogDestination.Home -> HomeContent(onNavigate = { destination = it })

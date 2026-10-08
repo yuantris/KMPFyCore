@@ -97,6 +97,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-rs-jvm"
+version = "0.1.0"
+dependencies = [
+ "core-binary",
+ "core-graph",
+ "core-math",
+ "core-search",
+ "jni",
+ "serde_json",
+]
+
+[[package]]
 name = "core-search"
 version = "0.1.0"
 dependencies = [

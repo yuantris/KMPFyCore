@@ -237,8 +237,14 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
     }
 
     LiquidGlassCard(backdrop, Modifier.fillMaxSize()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            Modifier.padding(top = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                Modifier.padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 OutlinedTextField(
                     value = expression,
                     onValueChange = { expression = it },
@@ -360,7 +366,7 @@ private fun GraphCanvas(
                         path.lineTo(screen.x, screen.y)
                     }
                 }
-                drawPath(path, primaryColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
+                drawPath(path, primaryColor, style = Stroke(width = 6f, cap = StrokeCap.Round))
             }
         }
     }
@@ -389,7 +395,7 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
     var message by remember { mutableStateOf<String?>(null) }
     var nextId by remember { mutableLongStateOf(100L) }
 
-    LaunchedEffect(Unit) {
+    fun seedSamples() {
         listOf(
             "床前明月光",
             "明月几时有",
@@ -399,6 +405,8 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
             runCatching { engine.add(index.toLong() + 1L, value) }
         }
     }
+
+    LaunchedEffect(Unit) { seedSamples() }
 
     fun addDocument() {
         val id = nextId++
@@ -450,6 +458,7 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
                 ) { Text("搜索") }
                 LiquidButton(onClick = {
                     engine.clear()
+                    seedSamples()
                     results = emptyList()
                     message = "已清空"
                 }, backdrop = backdrop) { Text("Clear") }

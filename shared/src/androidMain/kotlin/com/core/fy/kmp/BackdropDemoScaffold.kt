@@ -33,6 +33,9 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.core.fy.kmp.components.LiquidButton
 import fycorekmp.shared.generated.resources.Res
+import fycorekmp.shared.generated.resources.poem_saying_card
+import fycorekmp.shared.generated.resources.love_card_bg
+import fycorekmp.shared.generated.resources.tools_qi_cn
 import fycorekmp.shared.generated.resources.wallpaper_light
 import org.jetbrains.compose.resources.painterResource
 
@@ -66,7 +69,7 @@ actual fun BackdropDemoScaffold(
         val backdrop = rememberLayerBackdrop()
 
         Image(
-            painter ?: painterResource(Res.drawable.wallpaper_light),
+            painter ?: painterResource(Res.drawable.love_card_bg),
             null,
             Modifier
                 .layerBackdrop(backdrop)
