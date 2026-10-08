@@ -2,7 +2,7 @@ package io.core.rs
 
 import java.io.File
 
-internal object CoreRsNative {
+object CoreRsNative {
     private const val LIBRARY_NAME = "core_rs_jvm"
 
     init {
