@@ -14,7 +14,6 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.liquid.glass)
-    implementation(libs.liquid.glass.shapes)
     debugImplementation(libs.compose.uiTooling)
 }
 android {
