@@ -4,6 +4,7 @@ members = [
     "crates/core-common",
     "crates/core-search",
     "crates/core-math",
+    "crates/core-graph",
     "crates/core-binary",
     "bindings/android",
     "tools/core-rs-example",
@@ -19,6 +20,7 @@ authors = ["core-rs contributors"]
 core-common = { path = "crates/core-common" }
 core-search = { path = "crates/core-search" }
 core-math = { path = "crates/core-math" }
+core-graph = { path = "crates/core-graph" }
 core-binary = { path = "crates/core-binary" }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
