@@ -313,6 +313,7 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
     var text by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
     var message by remember { mutableStateOf<String?>(null) }
+    var nextId by remember { mutableLongStateOf(100L) }
 
     LaunchedEffect(Unit) {
         listOf(
@@ -326,7 +327,7 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
     }
 
     fun addDocument() {
-        val id = System.nanoTime().coerceAtLeast(1L)
+        val id = nextId++
         runCatching {
             engine.add(id, text)
             text = ""
@@ -377,7 +378,7 @@ private fun SearchPanel(backdrop: LayerBackdrop) {
                             Column(Modifier.weight(1f)) {
                                 Text(item.text)
                                 Text(
-                                    "id=" + item.id + "  score=" + "%.3f".format(item.score),
+                                    "id=" + item.id + "  score=" + item.score.toString(),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
                             }
