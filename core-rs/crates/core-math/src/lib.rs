@@ -35,12 +35,12 @@ impl Expr {
             Self::Variable => x,
             Self::VariableY | Self::VariableT => f64::NAN,
             Self::Unary { op, expr } => match op {
-                UnaryOp::Plus => expr.eval_x(x),
-                UnaryOp::Minus => -expr.eval_x(x),
+                UnaryOp::Plus => expr.eval_x_with_angle(x, angle),
+                UnaryOp::Minus => -expr.eval_x_with_angle(x, angle),
             },
             Self::Binary { op, left, right } => {
-                let a = left.eval_x(x);
-                let b = right.eval_x(x);
+                let a = left.eval_x_with_angle(x, angle);
+                let b = right.eval_x_with_angle(x, angle);
                 match op {
                     BinaryOp::Add => a + b,
                     BinaryOp::Subtract => a - b,
@@ -51,7 +51,7 @@ impl Expr {
                 }
             }
             Self::Function { function, expr } => {
-                let value = expr.eval_x(x);
+                let value = expr.eval_x_with_angle(x, angle);
                 match function {
                     Function::Sin => angle.radians(value).sin(),
                     Function::Cos => angle.radians(value).cos(),
@@ -258,7 +258,7 @@ impl Expression {
     }
 
     pub fn eval_x(input: &str, x: f64) -> CoreResult<f64> {
-        Self::compile(input).map(|expr| expr.eval_x(x))
+        Self::compile(input).map(|expr| expr.eval_x_with_angle(x, angle))
     }
 
     pub fn eval_vars(input: &str, x: f64, y: f64, t: f64) -> CoreResult<f64> {
