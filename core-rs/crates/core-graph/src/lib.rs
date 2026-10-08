@@ -1,4 +1,4 @@
 mod sampler;
 pub use sampler::{
-    sample, sample_checked, GraphConfig, GraphPoint, GraphResult, GraphSampler, GraphSegment,
+    analyze, sample, sample_checked, sample_parametric, sample_polar, GraphAnalysis, GraphConfig, GraphMode, GraphPoint, GraphResult, GraphSampler, GraphSegment, ParametricConfig,
 };
