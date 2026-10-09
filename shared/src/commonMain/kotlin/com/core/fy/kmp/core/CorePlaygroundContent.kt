@@ -360,7 +360,7 @@ private fun GraphCanvas(
 
 private fun niceStep(rawStep: Double): Double {
     if (!rawStep.isFinite() || rawStep <= 0.0) return 1.0
-    val magnitude = kotlin.math.pow(10.0, floor(log10(rawStep)))
+    val magnitude = 10.0.pow(floor(log10(rawStep)))
     val normalized = rawStep / magnitude
     val niceNormalized = when {
         normalized <= 1.0 -> 1.0
