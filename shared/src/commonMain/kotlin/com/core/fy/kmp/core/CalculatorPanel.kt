@@ -89,7 +89,7 @@ internal fun CalculatorPanel(backdrop: LayerBackdrop) {
                     LiquidButton(
                         onClick = { mode = item; setExpression("") },
                         backdrop = backdrop,
-                        tint = if (item == mode) MaterialTheme.colorScheme.primary else null,
+                        tint = if (item == mode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                     ) { Text(item.title()) }
                 }
             }
@@ -201,7 +201,7 @@ private fun CalculatorKeyboard(
                         tint = when (key) {
                             CalculatorKey.Equals -> MaterialTheme.colorScheme.primary
                             CalculatorKey.Clear, CalculatorKey.Delete -> MaterialTheme.colorScheme.secondaryContainer
-                            else -> null
+                            else -> MaterialTheme.colorScheme.surfaceVariant
                         },
                     ) { Text(key.label()) }
                 }
@@ -241,6 +241,12 @@ private fun HistoryView(
             }
         }
     }
+}
+
+private fun CalculatorMode.title(): String = when (this) {
+    CalculatorMode.Basic -> "基本"
+    CalculatorMode.Scientific -> "科学"
+    CalculatorMode.Fraction -> "分数"
 }
 
 private fun calculatorKeys(mode: CalculatorMode): List<List<CalculatorKey>> {
