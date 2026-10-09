@@ -55,6 +55,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-calc"
+version = "0.1.0"
+dependencies = [
+ "core-common",
+ "core-math",
+]
+
+[[package]]
 name = "core-common"
 version = "0.1.0"
 dependencies = [
@@ -82,6 +90,7 @@ name = "core-rs-android"
 version = "0.1.0"
 dependencies = [
  "core-binary",
+ "core-calc",
  "core-graph",
  "core-math",
  "core-search",
@@ -98,23 +107,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "core-rs-jvm"
+name = "core-rs-ffi"
 version = "0.1.0"
 dependencies = [
  "core-binary",
+ "core-calc",
+ "core-common",
  "core-graph",
  "core-math",
  "core-search",
- "jni",
  "serde_json",
 ]
 
 [[package]]
-name = "core-rs-ffi"
+name = "core-rs-jvm"
 version = "0.1.0"
 dependencies = [
+ "core-binary",
+ "core-calc",
  "core-graph",
  "core-math",
+ "core-search",
+ "jni",
  "serde_json",
 ]
 

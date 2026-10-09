@@ -186,7 +186,6 @@ fn gcd_i64(mut a: u64, mut b: u64) -> u64 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AngleMode { Rad, Deg }
 
 impl AngleMode {
@@ -234,6 +233,9 @@ impl Expr {
                     Function::Ln => value.ln(), Function::Log => value.log10(),
                     Function::Exp => value.exp(), Function::Floor => value.floor(),
                     Function::Ceil => value.ceil(),
+                    Function::Factorial => factorial(value),
+                    Function::Reciprocal => 1.0 / value,
+                    Function::Percent => value / 100.0,
                 }
             }
         }
@@ -261,7 +263,7 @@ impl Expression {
     }
 
     pub fn eval_x(input: &str, x: f64) -> CoreResult<f64> {
-        Self::compile(input).map(|expr| expr.eval_x_with_angle(x, angle))
+        Self::compile(input).map(|expr| expr.eval_x_with_angle(x, AngleMode::Rad))
     }
 
     pub fn eval_vars(input: &str, x: f64, y: f64, t: f64) -> CoreResult<f64> {
@@ -312,7 +314,6 @@ mod tests {
         assert!(Expression::eval("factorial(-1)").is_err());
     }
 
-    #[test]
     #[test]
     fn angle_modes() {
         close(Expression::eval_with_angle("sin(30)", AngleMode::Deg).unwrap(), 0.5);
