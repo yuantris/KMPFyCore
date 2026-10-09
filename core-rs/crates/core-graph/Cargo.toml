@@ -1,0 +1,10 @@
+[package]
+name = "core-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+core-common.workspace = true
+core-math.workspace = true
+
+serde.workspace = true

@@ -4,8 +4,12 @@ members = [
     "crates/core-common",
     "crates/core-search",
     "crates/core-math",
+    "crates/core-calc",
+    "crates/core-graph",
     "crates/core-binary",
     "bindings/android",
+    "bindings/jvm",
+    "bindings/ffi",
     "tools/core-rs-example",
 ]
 
@@ -13,15 +17,16 @@ members = [
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
-authors = ["core-rs contributors"]
 
 [workspace.dependencies]
 core-common = { path = "crates/core-common" }
 core-search = { path = "crates/core-search" }
 core-math = { path = "crates/core-math" }
+core-calc = { path = "crates/core-calc" }
+core-graph = { path = "crates/core-graph" }
 core-binary = { path = "crates/core-binary" }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-zip = { version = "6", default-features = false, features = ["deflate", "bzip2", "zstd"] }
+zip = { version = "6", default-features = false, features = ["deflate"] }
 jni = "0.21"

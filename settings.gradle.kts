@@ -13,7 +13,6 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-
 dependencyResolutionManagement {
     repositories {
         google {
@@ -26,15 +25,6 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
-}
-
-include(":androidApp")
-include(":desktopApp")
-include(":shared")
-//include(":core-rs-android")
-//
-//project(":core-rs-android").projectDir =
-//    file("../core-rs/bindings/android")
+plugins { id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0" }
+include(":androidApp", ":desktopApp", ":shared", ":core-rs-android")
+project(":core-rs-android").projectDir = file("core-rs/bindings/android")
