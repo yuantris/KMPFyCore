@@ -199,23 +199,178 @@ private fun GraphPanel(backdrop: LayerBackdrop) {
 }
 
 @Composable
-private fun GraphCanvas(segmentsByFunction: Map<Long, List<GraphSegment>>, viewport: Viewport, cursor: GraphPoint?, analysis: GraphAnalysis?, modifier: Modifier, onViewportChange: (Offset, Double, Double, Double) -> Unit, onCursor: (GraphPoint) -> Unit) {
-    val currentPan by rememberUpdatedState(onViewportChange); val currentCursor by rememberUpdatedState(onCursor); val primary = MaterialTheme.colorScheme.primary
-    Box(modifier.pointerInput(Unit) { detectTransformGestures { centroid, pan, zoom, _ -> currentPan(centroid, pan.x.toDouble(), pan.y.toDouble(), 1.0 / zoom.coerceIn(0.7f, 1.5f)) } }.pointerInput(Unit) { detectTapGestures(onLongPress = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }, onTap = { p -> currentCursor(GraphPoint(viewport.minX + p.x / size.width * viewport.width, viewport.maxY - p.y / size.height * viewport.height)) }) }) {
+private fun GraphCanvas(
+    segmentsByFunction: Map<Long, List<GraphSegment>>,
+    viewport: Viewport,
+    cursor: GraphPoint?,
+    analysis: GraphAnalysis?,
+    modifier: Modifier,
+    onViewportChange: (Offset, Double, Double, Double) -> Unit,
+    onCursor: (GraphPoint) -> Unit,
+) {
+    val currentPan by rememberUpdatedState(onViewportChange)
+    val currentCursor by rememberUpdatedState(onCursor)
+    val primary = MaterialTheme.colorScheme.primary
+    val errorColor = MaterialTheme.colorScheme.error
+
+    Box(
+        modifier
+            .pointerInput(Unit) {
+                detectTransformGestures { centroid, pan, zoom, _ ->
+                    currentPan(
+                        centroid,
+                        pan.x.toDouble(),
+                        pan.y.toDouble(),
+                        1.0 / zoom.coerceIn(0.7f, 1.5f),
+                    )
+                }
+            }
+            .pointerInput(viewport) {
+                detectTapGestures(
+                    onLongPress = { point ->
+                        if (size.width > 0 && size.height > 0) {
+                            currentCursor(
+                                GraphPoint(
+                                    viewport.minX + point.x / size.width * viewport.width,
+                                    viewport.maxY - point.y / size.height * viewport.height,
+                                ),
+                            )
+                        }
+                    },
+                    onTap = { point ->
+                        if (size.width > 0 && size.height > 0) {
+                            currentCursor(
+                                GraphPoint(
+                                    viewport.minX + point.x / size.width * viewport.width,
+                                    viewport.maxY - point.y / size.height * viewport.height,
+                                ),
+                            )
+                        }
+                    },
+                )
+            },
+    ) {
         Canvas(Modifier.fillMaxSize()) {
-            fun sx(x: Double) = ((x - viewport.minX) / viewport.width * size.width).toFloat(); fun sy(y: Double) = ((viewport.maxY - y) / viewport.height * size.height).toFloat(); val step = niceStep(viewport.width / 10.0)
-            var gx = floor(viewport.minX / step) * step; while (gx <= viewport.maxX) { drawLine(primary.copy(alpha = .10f), Offset(sx(gx), 0f), Offset(sx(gx), size.height)); gx += step }
-            var gy = floor(viewport.minY / step) * step; while (gy <= viewport.maxY) { drawLine(primary.copy(alpha = .10f), Offset(0f, sy(gy)), Offset(size.width, sy(gy))); gy += step }
-            if (viewport.minX <= 0 && viewport.maxX >= 0) drawLine(primary.copy(alpha = .35f), Offset(sx(0.0), 0f), Offset(sx(0.0), size.height), 2f)
-            if (viewport.minY <= 0 && viewport.maxY >= 0) drawLine(primary.copy(alpha = .35f), Offset(0f, sy(0.0)), Offset(size.width, sy(0.0)), 2f)
-            segmentsByFunction.values.forEachIndexed { index, list -> list.forEach { segment -> if (segment.points.size >= 2) { val path = Path(); segment.points.forEachIndexed { i, point -> val x = sx(point.x); val y = sy(point.y); if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }; drawPath(path, primary.copy(alpha = (1f - index * .12f).coerceAtLeast(.35f)), style = Stroke(width = 4f, cap = StrokeCap.Round)) } } }
-            analysis?.zeroes?.forEach { drawCircle(primary, 5f, Offset(sx(it.x), sy(it.y))) }; analysis?.extrema?.forEach { drawCircle(MaterialTheme.colorScheme.error, 5f, Offset(sx(it.x), sy(it.y))) }
-            cursor?.let { drawLine(primary.copy(alpha = .45f), Offset(sx(it.x), 0f), Offset(sx(it.x), size.height), 2f); drawLine(primary.copy(alpha = .45f), Offset(0f, sy(it.y)), Offset(size.width, sy(it.y)), 2f); drawCircle(primary, 6f, Offset(sx(it.x), sy(it.y))) }
+            fun screenX(x: Double): Float =
+                ((x - viewport.minX) / viewport.width * size.width).toFloat()
+
+            fun screenY(y: Double): Float =
+                ((viewport.maxY - y) / viewport.height * size.height).toFloat()
+
+            val step = niceStep(viewport.width / 10.0)
+            var gridX = floor(viewport.minX / step) * step
+            while (gridX <= viewport.maxX) {
+                drawLine(
+                    primary.copy(alpha = 0.10f),
+                    Offset(screenX(gridX), 0f),
+                    Offset(screenX(gridX), size.height),
+                )
+                gridX += step
+            }
+
+            var gridY = floor(viewport.minY / step) * step
+            while (gridY <= viewport.maxY) {
+                drawLine(
+                    primary.copy(alpha = 0.10f),
+                    Offset(0f, screenY(gridY)),
+                    Offset(size.width, screenY(gridY)),
+                )
+                gridY += step
+            }
+
+            if (viewport.minX <= 0.0 && viewport.maxX >= 0.0) {
+                drawLine(
+                    primary.copy(alpha = 0.35f),
+                    Offset(screenX(0.0), 0f),
+                    Offset(screenX(0.0), size.height),
+                    strokeWidth = 2f,
+                )
+            }
+            if (viewport.minY <= 0.0 && viewport.maxY >= 0.0) {
+                drawLine(
+                    primary.copy(alpha = 0.35f),
+                    Offset(0f, screenY(0.0)),
+                    Offset(size.width, screenY(0.0)),
+                    strokeWidth = 2f,
+                )
+            }
+
+            segmentsByFunction.values.forEachIndexed { index, segments ->
+                val color = primary.copy(
+                    alpha = (1f - index * 0.12f).coerceAtLeast(0.35f),
+                )
+                segments.forEach { segment ->
+                    if (segment.points.size >= 2) {
+                        val path = Path()
+                        segment.points.forEachIndexed { pointIndex, point ->
+                            val x = screenX(point.x)
+                            val y = screenY(point.y)
+                            if (pointIndex == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                        }
+                        drawPath(
+                            path,
+                            color,
+                            style = Stroke(width = 4f, cap = StrokeCap.Round),
+                        )
+                    }
+                }
+            }
+
+            analysis?.zeroes?.forEach { point ->
+                drawCircle(primary, 5f, Offset(screenX(point.x), screenY(point.y)))
+            }
+            analysis?.extrema?.forEach { point ->
+                drawCircle(errorColor, 5f, Offset(screenX(point.x), screenY(point.y)))
+            }
+            cursor?.let { point ->
+                drawLine(
+                    primary.copy(alpha = 0.45f),
+                    Offset(screenX(point.x), 0f),
+                    Offset(screenX(point.x), size.height),
+                    strokeWidth = 2f,
+                )
+                drawLine(
+                    primary.copy(alpha = 0.45f),
+                    Offset(0f, screenY(point.y)),
+                    Offset(size.width, screenY(point.y)),
+                    strokeWidth = 2f,
+                )
+                drawCircle(primary, 6f, Offset(screenX(point.x), screenY(point.y)))
+            }
         }
-        Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(viewport.minX.toString(), style = MaterialTheme.typography.labelSmall); Text("x", style = MaterialTheme.typography.labelSmall); Text(viewport.maxX.toString(), style = MaterialTheme.typography.labelSmall) }
-        Column(Modifier.align(Alignment.CenterStart).padding(6.dp), verticalArrangement = Arrangement.SpaceBetween) { Text(viewport.maxY.toString(), style = MaterialTheme.typography.labelSmall); Text("y", style = MaterialTheme.typography.labelSmall); Text(viewport.minY.toString(), style = MaterialTheme.typography.labelSmall) }
+
+        Row(
+            Modifier.fillMaxWidth().padding(6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(viewport.minX.toString(), style = MaterialTheme.typography.labelSmall)
+            Text("x", style = MaterialTheme.typography.labelSmall)
+            Text(viewport.maxX.toString(), style = MaterialTheme.typography.labelSmall)
+        }
+        Column(
+            Modifier.align(Alignment.CenterStart).padding(6.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(viewport.maxY.toString(), style = MaterialTheme.typography.labelSmall)
+            Text("y", style = MaterialTheme.typography.labelSmall)
+            Text(viewport.minY.toString(), style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
+
+private fun niceStep(rawStep: Double): Double {
+    if (!rawStep.isFinite() || rawStep <= 0.0) return 1.0
+    val magnitude = kotlin.math.pow(10.0, floor(log10(rawStep)))
+    val normalized = rawStep / magnitude
+    val niceNormalized = when {
+        normalized <= 1.0 -> 1.0
+        normalized <= 2.0 -> 2.0
+        normalized <= 5.0 -> 5.0
+        else -> 10.0
+    }
+    return niceNormalized * magnitude
+}
+
 @Composable
 private fun SearchPanel(backdrop: LayerBackdrop) {
     val engine = remember { CoreRsPlatform.createSearch() }
