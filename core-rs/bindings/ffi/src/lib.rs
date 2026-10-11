@@ -66,7 +66,7 @@ pub extern "C" fn core_rs_calculate_with_angle(expression: *const c_char, mode: 
             _ => return Err("invalid calculator mode".to_string()),
         };
         let angle = match angle { 0 => AngleMode::Rad, 1 => AngleMode::Deg, _ => return Err("invalid angle mode".to_string()) };
-        let result = CalculatorEngine::evaluate_with_angle(mode, expression, angle).map_err(|e| e.to_string())?
+        let result = CalculatorEngine::evaluate_with_angle(mode, expression, angle).map_err(|e| e.to_string())?;
         let value = match result.value {
             CalculationValue::Real(v) => serde_json::json!({"type":"real","value":v}),
             CalculationValue::Rational(v) => serde_json::json!({"type":"rational","numerator":v.numerator,"denominator":v.denominator,"value":v.to_f64()}),
@@ -213,4 +213,4 @@ pub extern "C" fn core_rs_apk_entries(path: *const c_char) -> *mut c_char {
     let Ok(path) = input(path) else { return std::ptr::null_mut(); };
     ApkReader::open(path).and_then(|a| a.entries()).map_or(std::ptr::null_mut(), json_ptr)
 }
-\nmod stitch;\n
+mod stitch;
