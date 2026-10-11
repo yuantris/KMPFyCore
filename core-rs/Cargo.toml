@@ -7,6 +7,8 @@ members = [
     "crates/core-calc",
     "crates/core-graph",
     "crates/core-binary",
+    "crates/core-image",
+    "crates/core-stitch",
     "bindings/android",
     "bindings/jvm",
     "bindings/ffi",
@@ -25,6 +27,9 @@ core-math = { path = "crates/core-math" }
 core-calc = { path = "crates/core-calc" }
 core-graph = { path = "crates/core-graph" }
 core-binary = { path = "crates/core-binary" }
+core-image = { path = "crates/core-image" }
+core-stitch = { path = "crates/core-stitch" }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "bmp"] }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
