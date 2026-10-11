@@ -1,0 +1,33 @@
+name: Core-RS Image Stitching
+
+on:
+  push:
+    branches:
+      - feature/function-graph-rust-android
+    paths:
+      - "core-rs/Cargo.toml"
+      - "core-rs/crates/core-image/**"
+      - "core-rs/crates/core-stitch/**"
+      - ".github/workflows/core-rs-image-stitch.yml"
+  pull_request:
+    paths:
+      - "core-rs/Cargo.toml"
+      - "core-rs/crates/core-image/**"
+      - "core-rs/crates/core-stitch/**"
+      - ".github/workflows/core-rs-image-stitch.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core-rs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt -p core-image -p core-stitch -- --check
+      - name: Test pure Rust image modules
+        run: cargo test -p core-image -p core-stitch
