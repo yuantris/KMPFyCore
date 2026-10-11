@@ -137,7 +137,9 @@ fn best_overlap(
     if max_height < 2 {
         return (0, 0.0);
     }
-    let min_overlap = ((max_height as f32 * min_ratio).ceil() as u32).max(1);
+    let min_overlap = ((max_height as f32 * min_ratio).ceil() as u32)
+        .max(1)
+        .min(max_height.saturating_sub(1));
     let max_overlap = ((max_height as f32 * max_ratio).floor() as u32)
         .min(max_height.saturating_sub(1))
         .max(min_overlap);
