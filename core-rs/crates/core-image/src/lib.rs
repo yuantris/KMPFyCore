@@ -31,11 +31,11 @@ pub fn decode(bytes: &[u8]) -> Result<RgbaImage, ImageError> {
     let mut reader = image::ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|error| ImageError::Decode(image::ImageError::IoError(error)))?;
-    reader.limits(image::Limits {
-        max_image_width: Some(u32::MAX),
-        max_image_height: Some(u32::MAX),
-        max_alloc: Some(DEFAULT_MAX_PIXELS * 4),
-    });
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(u32::MAX);
+    limits.max_image_height = Some(u32::MAX);
+    limits.max_alloc = Some(DEFAULT_MAX_PIXELS * 4);
+    reader.limits(limits);
     let decoded = reader.decode()?;
     validate_dimensions(decoded.width(), decoded.height(), DEFAULT_MAX_PIXELS)?;
     Ok(decoded.to_rgba8())
@@ -47,11 +47,11 @@ pub fn decode_file(path: impl AsRef<std::path::Path>) -> Result<RgbaImage, Image
         .map_err(|error| ImageError::Decode(image::ImageError::IoError(error)))?
         .with_guessed_format()
         .map_err(|error| ImageError::Decode(image::ImageError::IoError(error)))?;
-    reader.limits(image::Limits {
-        max_image_width: Some(u32::MAX),
-        max_image_height: Some(u32::MAX),
-        max_alloc: Some((DEFAULT_MAX_PIXELS * 4).min(usize::MAX as u64) as u64),
-    });
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(u32::MAX);
+    limits.max_image_height = Some(u32::MAX);
+    limits.max_alloc = Some(DEFAULT_MAX_PIXELS * 4);
+    reader.limits(limits);
     let decoded = reader.decode()?;
     validate_dimensions(decoded.width(), decoded.height(), DEFAULT_MAX_PIXELS)?;
     Ok(decoded.to_rgba8())
