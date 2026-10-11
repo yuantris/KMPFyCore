@@ -5,3 +5,4 @@ mod search;
 mod binary;
 
 mod calc;
+mod stitch;
