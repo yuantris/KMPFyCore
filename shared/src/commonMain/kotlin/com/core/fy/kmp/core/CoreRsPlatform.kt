@@ -17,6 +17,42 @@ data class GraphAnalysis(
 data class SearchResult(val id: Long, val score: Float, val text: String)
 data class ZipEntryInfo(val name: String, val compressedSize: Long, val uncompressedSize: Long, val isDirectory: Boolean)
 
+enum class ImageStitchMode { Scroll, Panorama, Vertical, Horizontal, Grid, Auto }
+
+data class ImageStitchConfig(
+    val mode: ImageStitchMode = ImageStitchMode.Scroll,
+    val maxWidth: Int = 0,
+    val maxHeight: Int = 0,
+    val minOverlapRatio: Float = 0.10f,
+    val maxOverlapRatio: Float = 0.85f,
+    val minConfidence: Float = 0.45f,
+    val blend: Boolean = true,
+    val outputFormat: String = "png",
+    val columns: Int = 0,
+    val spacing: Int = 12,
+    val background: List<Int> = listOf(255, 255, 255, 255),
+    val maxOutputPixels: Long = 100_000_000L,
+)
+
+data class ImageStitchSegment(
+    val imageIndex: Int,
+    val x: Long,
+    val y: Long,
+    val cropX: Int,
+    val cropY: Int,
+    val cropWidth: Int,
+    val cropHeight: Int,
+    val confidence: Float,
+)
+
+data class ImageStitchResult(
+    val width: Int,
+    val height: Int,
+    val imageCount: Int,
+    val mode: ImageStitchMode,
+    val segments: List<ImageStitchSegment>,
+)
+
 expect object CoreRsPlatform {
     fun eval(expression: String): Double
     fun eval(expression: String, x: Double): Double
