@@ -144,38 +144,59 @@ fn best_overlap(
         .min(max_height.saturating_sub(1))
         .max(min_overlap);
     let x_step = (upper.width() / 96).max(1);
-    let y_step = 1u32.max(max_overlap / 128);
+    let coarse_step = 1u32.max((max_overlap - min_overlap) / 128);
     let mut best = (min_overlap, f32::NEG_INFINITY);
 
     let mut overlap = min_overlap;
     while overlap <= max_overlap {
-        let upper_start = upper.height() - overlap;
-        let mut error_sum = 0.0f64;
-        let mut samples = 0u64;
-        let mut y = 0;
-        while y < overlap {
-            let mut x = 0;
-            while x < upper.width() {
-                let a = luminance(upper.get_pixel(x, upper_start + y).0);
-                let b = luminance(lower.get_pixel(x, y).0);
-                error_sum += (a - b).abs() as f64 / 255.0;
-                samples += 1;
-                x = x.saturating_add(x_step);
-            }
-            y = y.saturating_add(y_step);
-        }
-        let error = if samples == 0 { 1.0 } else { error_sum / samples as f64 };
-        // Prefer the lowest error. The slight penalty for very large overlaps
-        // reduces false matches in repeated/flat backgrounds.
-        let score = (1.0 - error as f32) - (overlap as f32 / max_height as f32) * 0.015;
+        let score = overlap_score(upper, lower, overlap, x_step, max_height);
         if score > best.1 {
             best = (overlap, score);
         }
-        overlap = overlap.saturating_add(y_step);
+        overlap = overlap.saturating_add(coarse_step);
         if overlap == u32::MAX { break; }
     }
 
+    // Refine around the best coarse candidate so ordinary phone screenshot
+    // sizes do not lose accuracy merely because the coarse stride is larger
+    // than one pixel.
+    let refine_start = best.0.saturating_sub(coarse_step).max(min_overlap);
+    let refine_end = best.0.saturating_add(coarse_step).min(max_overlap);
+    for candidate in refine_start..=refine_end {
+        let score = overlap_score(upper, lower, candidate, x_step, max_height);
+        if score > best.1 {
+            best = (candidate, score);
+        }
+    }
+
     (best.0, best.1.clamp(0.0, 1.0))
+}
+
+fn overlap_score(
+    upper: &RgbaImage,
+    lower: &RgbaImage,
+    overlap: u32,
+    x_step: u32,
+    max_height: u32,
+) -> f32 {
+    let upper_start = upper.height() - overlap;
+    let mut error_sum = 0.0f64;
+    let mut samples = 0u64;
+    let y_step = 1u32.max(overlap / 128);
+    let mut y = 0;
+    while y < overlap {
+        let mut x = 0;
+        while x < upper.width() {
+            let a = luminance(upper.get_pixel(x, upper_start + y).0);
+            let b = luminance(lower.get_pixel(x, y).0);
+            error_sum += (a - b).abs() as f64 / 255.0;
+            samples += 1;
+            x = x.saturating_add(x_step);
+        }
+        y = y.saturating_add(y_step);
+    }
+    let error = if samples == 0 { 1.0 } else { error_sum / samples as f64 };
+    (1.0 - error as f32) - (overlap as f32 / max_height as f32) * 0.015
 }
 
 fn luminance(pixel: [u8; 4]) -> f32 {
