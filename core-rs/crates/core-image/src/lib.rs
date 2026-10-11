@@ -35,10 +35,16 @@ pub fn decode(bytes: &[u8]) -> Result<RgbaImage, ImageError> {
 
 /// Decode an image from a path, checking its dimensions before returning pixels.
 pub fn decode_file(path: impl AsRef<std::path::Path>) -> Result<RgbaImage, ImageError> {
-    let decoded = image::ImageReader::open(path)
-        .map_err(image::ImageError::IoError)?
-        .with_guessed_format()?
-        .decode()?;
+    let mut reader = image::ImageReader::open(path)
+        .map_err(|error| ImageError::Decode(image::ImageError::IoError(error)))?
+        .with_guessed_format()
+        .map_err(|error| ImageError::Decode(image::ImageError::IoError(error)))?;
+    reader.limits(image::Limits {
+        max_image_width: Some(u32::MAX),
+        max_image_height: Some(u32::MAX),
+        max_alloc: Some((DEFAULT_MAX_PIXELS * 4).min(usize::MAX as u64) as u64),
+    });
+    let decoded = reader.decode()?;
     validate_dimensions(decoded.width(), decoded.height(), DEFAULT_MAX_PIXELS)?;
     Ok(decoded.to_rgba8())
 }
@@ -54,7 +60,12 @@ pub fn encode(image: &RgbaImage, format: &str) -> Result<Vec<u8>, ImageError> {
         other => return Err(ImageError::UnsupportedFormat(other.to_owned())),
     };
     let mut bytes = Cursor::new(Vec::new());
-    DynamicImage::ImageRgba8(image.clone()).write_to(&mut bytes, image_format)
+    let dynamic = if image_format == ImageFormat::Jpeg {
+        DynamicImage::ImageRgb8(DynamicImage::ImageRgba8(image.clone()).to_rgb8())
+    } else {
+        DynamicImage::ImageRgba8(image.clone())
+    };
+    dynamic.write_to(&mut bytes, image_format)
         .map_err(|error| ImageError::Encode(error.to_string()))?;
     Ok(bytes.into_inner())
 }
