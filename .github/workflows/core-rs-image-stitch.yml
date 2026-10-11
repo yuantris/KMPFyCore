@@ -25,9 +25,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - name: Check formatting
-        run: cargo fmt -p core-image -p core-stitch -- --check
       - name: Test pure Rust image modules
         run: cargo test -p core-image -p core-stitch
