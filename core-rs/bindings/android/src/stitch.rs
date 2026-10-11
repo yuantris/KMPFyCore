@@ -26,7 +26,7 @@ pub extern "system" fn Java_io_core_rs_CoreRsNative_nativeStitch(
         Err(()) => return std::ptr::null_mut(),
     };
 
-    let input_paths: Vec<String> = match serde_json::from_str(&inputs) {
+    let input_paths: Vec<String> = match serde_json::from_str::<Vec<String>>(&inputs) {
         Ok(value) if !value.is_empty() => value,
         Ok(_) => {
             throw(&mut env, "at least one input image is required");
