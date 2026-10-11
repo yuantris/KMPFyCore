@@ -24,9 +24,6 @@ on:
       - "core-rs/bindings/ffi/**"
       - ".github/workflows/core-rs-image-stitch.yml"
 
-permissions:
-  contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -40,13 +37,3 @@ jobs:
         run: cargo test -p core-image -p core-stitch
       - name: Check Android, JVM and C FFI bindings
         run: cargo check -p core-rs-android -p core-rs-jvm -p core-rs-ffi
-      - name: Commit generated Cargo.lock update (temporary bootstrap)
-        if: success()
-        run: |
-          if ! git diff --quiet -- Cargo.lock; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add Cargo.lock
-            git commit -m "Update Cargo.lock for image stitching"
-            git push origin HEAD:feature/function-graph-rust-android
-          fi
