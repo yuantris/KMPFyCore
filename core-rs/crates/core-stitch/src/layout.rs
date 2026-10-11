@@ -25,19 +25,6 @@ pub fn stitch_layout(
     }
 }
 
-fn checked_canvas(width: u64, height: u64, config: &StitchConfig) -> Result<RgbaImage, StitchError> {
-    if width == 0 || height == 0 || width > u32::MAX as u64 || height > u32::MAX as u64
-        || width.checked_mul(height).is_none_or(|pixels| pixels > config.max_output_pixels)
-    {
-        return Err(StitchError::OutputTooLarge);
-    }
-    Ok(RgbaImage::from_pixel(
-        width as u32,
-        height as u32,
-        Rgba(config.background),
-    ))
-}
-
 fn stitch_linear(
     images: &[RgbaImage],
     config: &StitchConfig,
@@ -78,11 +65,26 @@ fn stitch_linear(
 
     for (index, image) in normalized.iter().enumerate() {
         let (x, y) = if horizontal { (offset, 0) } else { (0, offset) };
-        imageops::overlay(&mut canvas, image, x as i64, y as i64);
+        let rendered = if (scale - 1.0).abs() > f64::EPSILON {
+            imageops::resize(
+                image,
+                (f64::from(image.width()) * scale).round().max(1.0) as u32,
+                (f64::from(image.height()) * scale).round().max(1.0) as u32,
+                imageops::FilterType::Lanczos3,
+            )
+        } else {
+            image.clone()
+        };
+        imageops::overlay(
+            &mut canvas,
+            &rendered,
+            (x as f64 * scale).round() as i64,
+            (y as f64 * scale).round() as i64,
+        );
         segments.push(StitchSegment {
             image_index: index,
-            x: (x as f64 * scale) as i64,
-            y: (y as f64 * scale) as i64,
+            x: (x as f64 * scale).round() as i64,
+            y: (y as f64 * scale).round() as i64,
             crop_x: 0,
             crop_y: 0,
             crop_width: image.width(),
@@ -108,12 +110,11 @@ fn stitch_linear(
 }
 
 fn stitch_grid(images: &[RgbaImage], config: &StitchConfig) -> Result<StitchResult, StitchError> {
-    let cell_width = images.iter().map(RgbaImage::width).max().ok_or(StitchError::EmptyInput)?;
-    let cell_height = images.iter().map(RgbaImage::height).max().ok_or(StitchError::EmptyInput)?;
     if images.iter().any(|i| i.width() == 0 || i.height() == 0) {
         return Err(StitchError::InvalidDimensions);
     }
-
+    let cell_width = images.iter().map(RgbaImage::width).max().ok_or(StitchError::EmptyInput)?;
+    let cell_height = images.iter().map(RgbaImage::height).max().ok_or(StitchError::EmptyInput)?;
     let columns = if config.columns == 0 {
         (images.len() as f64).sqrt().ceil() as usize
     } else {
@@ -131,11 +132,26 @@ fn stitch_grid(images: &[RgbaImage], config: &StitchConfig) -> Result<StitchResu
         let row = index / columns;
         let x = col as u64 * (u64::from(cell_width) + gap);
         let y = row as u64 * (u64::from(cell_height) + gap);
-        imageops::overlay(&mut canvas, image, x as i64, y as i64);
+        let rendered = if (scale - 1.0).abs() > f64::EPSILON {
+            imageops::resize(
+                image,
+                (f64::from(image.width()) * scale).round().max(1.0) as u32,
+                (f64::from(image.height()) * scale).round().max(1.0) as u32,
+                imageops::FilterType::Lanczos3,
+            )
+        } else {
+            image.clone()
+        };
+        imageops::overlay(
+            &mut canvas,
+            &rendered,
+            (x as f64 * scale).round() as i64,
+            (y as f64 * scale).round() as i64,
+        );
         segments.push(StitchSegment {
             image_index: index,
-            x: (x as f64 * scale) as i64,
-            y: (y as f64 * scale) as i64,
+            x: (x as f64 * scale).round() as i64,
+            y: (y as f64 * scale).round() as i64,
             crop_x: 0,
             crop_y: 0,
             crop_width: image.width(),
@@ -156,7 +172,7 @@ fn stitch_grid(images: &[RgbaImage], config: &StitchConfig) -> Result<StitchResu
     })
 }
 
-/// Compute a safe canvas and uniformly downscale if explicit output dimensions require it.
+/// Create a bounded output canvas and return the uniform scale applied to it.
 fn bounded_canvas(
     width: u64,
     height: u64,
@@ -176,8 +192,7 @@ fn bounded_canvas(
     let mut scaled_height = ((height as f64 * scale).floor() as u64).max(1);
     let pixels = scaled_width.checked_mul(scaled_height).ok_or(StitchError::OutputTooLarge)?;
     if pixels > config.max_output_pixels {
-        let pixel_scale = (config.max_output_pixels as f64 / pixels as f64).sqrt();
-        scale *= pixel_scale;
+        scale *= (config.max_output_pixels as f64 / pixels as f64).sqrt();
         scaled_width = ((width as f64 * scale).floor() as u64).max(1);
         scaled_height = ((height as f64 * scale).floor() as u64).max(1);
     }
@@ -186,15 +201,14 @@ fn bounded_canvas(
     {
         return Err(StitchError::OutputTooLarge);
     }
-
-    let original = checked_canvas(width.min(u32::MAX as u64), height.min(u32::MAX as u64), config);
-    // Avoid allocating the unscaled image when the final dimensions are smaller.
-    let _ = original;
-    Ok((RgbaImage::from_pixel(
-        scaled_width as u32,
-        scaled_height as u32,
-        Rgba(config.background),
-    ), scale))
+    Ok((
+        RgbaImage::from_pixel(
+            scaled_width as u32,
+            scaled_height as u32,
+            Rgba(config.background),
+        ),
+        scale,
+    ))
 }
 
 #[cfg(test)]
