@@ -93,6 +93,61 @@ actual object CoreRsPlatform {
         return GraphAnalysis(points("zeroes"), points("extrema"))
     }
 
+    actual fun stitchFiles(
+        inputPaths: List<String>,
+        outputPath: String,
+        config: ImageStitchConfig,
+    ): ImageStitchResult {
+        require(inputPaths.isNotEmpty()) { "at least one input image is required" }
+        require(outputPath.isNotBlank()) { "outputPath must not be blank" }
+        require(config.background.size == 4 && config.background.all { it in 0..255 }) {
+            "background must contain four RGBA values in 0..255"
+        }
+        val configJson = JSONObject()
+            .put("mode", config.mode.name.lowercase())
+            .put("max_width", config.maxWidth)
+            .put("max_height", config.maxHeight)
+            .put("min_overlap_ratio", config.minOverlapRatio.toDouble())
+            .put("max_overlap_ratio", config.maxOverlapRatio.toDouble())
+            .put("min_confidence", config.minConfidence.toDouble())
+            .put("blend", config.blend)
+            .put("output_format", config.outputFormat)
+            .put("columns", config.columns)
+            .put("spacing", config.spacing)
+            .put("background", JSONArray().apply { config.background.forEach { put(it) } })
+            .put("max_output_pixels", config.maxOutputPixels)
+        val pathsJson = JSONArray().apply { inputPaths.forEach { put(it) } }.toString()
+        val root = JSONObject(CoreRsNative.nativeStitch(pathsJson, outputPath, configJson.toString()))
+        val segmentsJson = root.optJSONArray("segments") ?: JSONArray()
+        val segments = buildList(segmentsJson.length()) {
+            for (index in 0 until segmentsJson.length()) {
+                val item = segmentsJson.optJSONObject(index) ?: continue
+                add(
+                    ImageStitchSegment(
+                        imageIndex = item.optInt("image_index"),
+                        x = item.optLong("x"),
+                        y = item.optLong("y"),
+                        cropX = item.optInt("crop_x"),
+                        cropY = item.optInt("crop_y"),
+                        cropWidth = item.optInt("crop_width"),
+                        cropHeight = item.optInt("crop_height"),
+                        confidence = item.optDouble("confidence").toFloat(),
+                    )
+                )
+            }
+        }
+        val mode = ImageStitchMode.entries.firstOrNull {
+            it.name.equals(root.optString("mode"), ignoreCase = true)
+        } ?: config.mode
+        return ImageStitchResult(
+            width = root.optInt("width"),
+            height = root.optInt("height"),
+            imageCount = root.optInt("image_count"),
+            mode = mode,
+            segments = segments,
+        )
+    }
+
     actual fun createSearch(): CoreSearch = CoreSearch()
 
     actual val sampleZipPath: String
