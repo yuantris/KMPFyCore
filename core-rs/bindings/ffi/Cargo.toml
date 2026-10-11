@@ -15,4 +15,5 @@ core-search.workspace = true
 core-binary.workspace = true
 core-graph.workspace = true
 core-stitch.workspace = true
+serde.workspace = true
 serde_json.workspace = true
