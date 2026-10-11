@@ -12,6 +12,10 @@ on:
       - "core-rs/bindings/android/**"
       - "core-rs/bindings/jvm/**"
       - "core-rs/bindings/ffi/**"
+      - "shared/src/commonMain/kotlin/com/core/fy/kmp/core/CoreRsPlatform.kt"
+      - "shared/src/androidMain/kotlin/com/core/fy/kmp/core/CoreRsPlatform.android.kt"
+      - "shared/src/jvmMain/kotlin/com/core/fy/kmp/core/CoreRsPlatform.jvm.kt"
+      - "shared/src/jvmMain/kotlin/io/core/rs/CoreRsNative.kt"
       - ".github/workflows/core-rs-image-stitch.yml"
   pull_request:
     paths:
@@ -37,3 +41,13 @@ jobs:
         run: cargo test -p core-image -p core-stitch
       - name: Check Android, JVM and C FFI bindings
         run: cargo check -p core-rs-android -p core-rs-jvm -p core-rs-ffi
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Compile shared Kotlin targets
+        working-directory: .
+        run: ./gradlew :shared:compileKotlinJvm :shared:compileDebugKotlinAndroid
