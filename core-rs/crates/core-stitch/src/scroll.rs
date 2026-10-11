@@ -200,7 +200,7 @@ fn overlap_score(
 }
 
 fn luminance(pixel: [u8; 4]) -> f32 {
-    (0.2126 * f32::from(pixel[0]) + 0.7152 * f32::from(pixel[1]) + 0.0722 * f32::from(pixel[2]))
+    0.2126 * f32::from(pixel[0]) + 0.7152 * f32::from(pixel[1]) + 0.0722 * f32::from(pixel[2])
 }
 
 fn bounded_dimensions(width: u64, height: u64, config: &StitchConfig) -> Result<(u32, u32, f64), StitchError> {
