@@ -13,3 +13,5 @@ mod search;
 mod binary;
 #[path = "../../android/src/calc.rs"]
 mod calc;
+#[path = "../../android/src/stitch.rs"]
+mod stitch;
