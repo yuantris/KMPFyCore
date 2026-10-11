@@ -28,7 +28,15 @@ pub fn decode(bytes: &[u8]) -> Result<RgbaImage, ImageError> {
     if bytes.is_empty() {
         return Err(ImageError::EmptyInput);
     }
-    let decoded = image::load_from_memory(bytes)?;
+    let mut reader = image::ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|error| ImageError::Decode(image::ImageError::IoError(error)))?;
+    reader.limits(image::Limits {
+        max_image_width: Some(u32::MAX),
+        max_image_height: Some(u32::MAX),
+        max_alloc: Some(DEFAULT_MAX_PIXELS * 4),
+    });
+    let decoded = reader.decode()?;
     validate_dimensions(decoded.width(), decoded.height(), DEFAULT_MAX_PIXELS)?;
     Ok(decoded.to_rgba8())
 }
