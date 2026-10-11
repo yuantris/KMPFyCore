@@ -213,3 +213,4 @@ pub extern "C" fn core_rs_apk_entries(path: *const c_char) -> *mut c_char {
     let Ok(path) = input(path) else { return std::ptr::null_mut(); };
     ApkReader::open(path).and_then(|a| a.entries()).map_or(std::ptr::null_mut(), json_ptr)
 }
+\nmod stitch;\n
