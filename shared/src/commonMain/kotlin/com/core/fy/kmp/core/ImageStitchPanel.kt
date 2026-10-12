@@ -88,7 +88,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                     ) {
                         ImageStitchPreview(path, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)))
                         Column(Modifier.weight(1f)) {
-                            Text("${index + 1}. ${path.substringAfterLast('/').substringAfterLast('\\\\')}", maxLines = 1)
+                            Text("${index + 1}. ${path.substringAfterLast('/').substringAfterLast('\\')}", maxLines = 1)
                             Text(path, style = MaterialTheme.typography.labelSmall, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
