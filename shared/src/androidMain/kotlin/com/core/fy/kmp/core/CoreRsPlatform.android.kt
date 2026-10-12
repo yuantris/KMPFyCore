@@ -62,31 +62,35 @@ actual object CoreRsPlatform {
             .put("max_output_pixels", config.maxOutputPixels)
         val pathsJson = JSONArray().apply { inputPaths.forEach { put(it) } }.toString()
         val root = JSONObject(CoreRsNative.nativeStitch(pathsJson, outputPath, configJson.toString()))
-        val segmentsJson = root.optJSONArray("segments") ?: JSONArray()
+        val segmentsJson = if (root.has("segments") && !root.isNull("segments")) {
+            root.getJSONArray("segments")
+        } else {
+            JSONArray()
+        }
         val segments = buildList(segmentsJson.length()) {
             for (index in 0 until segmentsJson.length()) {
-                val item = segmentsJson.optJSONObject(index) ?: continue
+                val item = if (segmentsJson.isNull(index)) continue else segmentsJson.getJSONObject(index)
                 add(
                     ImageStitchSegment(
-                        imageIndex = item.optInt("image_index"),
-                        x = item.optLong("x"),
-                        y = item.optLong("y"),
-                        cropX = item.optInt("crop_x"),
-                        cropY = item.optInt("crop_y"),
-                        cropWidth = item.optInt("crop_width"),
-                        cropHeight = item.optInt("crop_height"),
-                        confidence = item.optDouble("confidence").toFloat(),
+                        imageIndex = item.getInt("image_index"),
+                        x = item.getLong("x"),
+                        y = item.getLong("y"),
+                        cropX = item.getInt("crop_x"),
+                        cropY = item.getInt("crop_y"),
+                        cropWidth = item.getInt("crop_width"),
+                        cropHeight = item.getInt("crop_height"),
+                        confidence = item.getDouble("confidence").toFloat(),
                     )
                 )
             }
         }
         val mode = ImageStitchMode.entries.firstOrNull {
-            it.name.equals(root.optString("mode"), ignoreCase = true)
+            it.name.equals(root.getString("mode"), ignoreCase = true)
         } ?: config.mode
         return ImageStitchResult(
-            width = root.optInt("width"),
-            height = root.optInt("height"),
-            imageCount = root.optInt("image_count"),
+            width = root.getInt("width"),
+            height = root.getInt("height"),
+            imageCount = root.getInt("image_count"),
             mode = mode,
             segments = segments,
         )
