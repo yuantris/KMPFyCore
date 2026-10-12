@@ -156,12 +156,67 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                 item {
                     HorizontalDivider()
                     Text("接缝校准", style = MaterialTheme.typography.titleMedium)
-                    Text("先查看自动拼接的连续长图。点击接缝，再微调接缝上方或下方的截图；每次调整都会重新生成预览。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("长图上的横线就是接缝。直接上下拖动横线，调整下方截图的位置；松开后自动更新连续长图预览。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item {
                     val preview = previewPath
                     if (preview != null) {
-                        ImageStitchPreview(preview, Modifier.fillMaxWidth().heightIn(max = 680.dp).clip(RoundedCornerShape(12.dp)))
+                        val previewResult = result
+                        if (previewResult == null) {
+                            ImageStitchPreview(preview, Modifier.fillMaxWidth().heightIn(max = 680.dp).clip(RoundedCornerShape(12.dp)))
+                        } else {
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                val imageHeight = (maxWidth * previewResult.height.toFloat() / previewResult.width.coerceAtLeast(1)).coerceAtMost(680.dp)
+                                Box(Modifier.fillMaxWidth().height(imageHeight).clip(RoundedCornerShape(12.dp))) {
+                                    ImageStitchPreview(preview, Modifier.fillMaxSize())
+                                    previewResult.segments.drop(1).forEachIndexed { seamIndex, segment ->
+                                        var dragDelta by remember(seamIndex) { mutableStateOf(0f) }
+                                        val seamY = (imageHeight * segment.y.toFloat() / previewResult.height.coerceAtLeast(1)).coerceIn(0.dp, imageHeight)
+                                        Box(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .offset(y = seamY - 10.dp)
+                                                .height(20.dp)
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.24f))
+                                                .pointerInput(seamIndex, busy, imageHeight, previewResult.height) {
+                                                    detectDragGestures(
+                                                        onDragStart = { dragDelta = 0f },
+                                                        onDragEnd = {
+                                                            val pixelDelta = (dragDelta * previewResult.height / imageHeight.toPx()).roundToInt()
+                                                            if (pixelDelta != 0 && !busy) {
+                                                                val nextOffsets = seamOffsets.toMutableList().also {
+                                                                    it[seamIndex] = (it[seamIndex] + pixelDelta).coerceIn(-300, 300)
+                                                                }
+                                                                seamOffsets = nextOffsets
+                                                                result = null
+                                                                busy = true
+                                                                scope.launch {
+                                                                    val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = nextOffsets)
+                                                                    runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, preview, config) } }
+                                                                        .onSuccess { result = it; previewPath = preview; message = "接缝已更新，可继续拖动校准" }
+                                                                        .onFailure { message = it.message ?: "预览生成失败" }
+                                                                    busy = false
+                                                                }
+                                                            }
+                                                        },
+                                                        onDrag = { change, amount ->
+                                                            change.consume()
+                                                            dragDelta += amount.y
+                                                        },
+                                                    )
+                                                },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                shape = RoundedCornerShape(50),
+                                                modifier = Modifier.width(72.dp).height(4.dp),
+                                            ) {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         Surface(Modifier.fillMaxWidth().height(180.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                             Box(contentAlignment = Alignment.Center) { Text("正在生成自动拼接预览…") }
@@ -259,12 +314,12 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                             val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars)
                             scope.launch {
                                 runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, previewOutput, config) } }
-                                    .onSuccess { message = "自动拼接预览已生成，请选择接缝进行微调" }
+                                    .onSuccess { result = it; message = "自动拼接预览已生成，直接拖动长图上的接缝线即可校准" }
                                     .onFailure { message = it.message ?: "自动拼接预览失败"; calibrating = false }
                                 busy = false
                             }
                         },
-                    ) { Text("调整裁切并预览") }
+                    ) { Text("自动拼接并校准") }
                     if (busy) {
                         CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                     }
