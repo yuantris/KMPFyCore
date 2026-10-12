@@ -30,6 +30,8 @@ pub struct StitchConfig {
     pub fixed_header_height: u32,
     /// Explicit fixed footer crop in pixels, applied after automatic detection.
     pub fixed_footer_height: u32,
+    /// Per-input manual crop [top, bottom] in source pixels, indexed by input order.
+    pub manual_crops: Vec<[u32; 2]>,
     pub blend: bool,
     pub output_format: String,
     /// Grid columns; 0 selects a near-square grid.
@@ -52,6 +54,7 @@ impl Default for StitchConfig {
             auto_detect_fixed_bars: true,
             fixed_header_height: 0,
             fixed_footer_height: 0,
+            manual_crops: Vec::new(),
             blend: true,
             output_format: "png".into(),
             columns: 0,
