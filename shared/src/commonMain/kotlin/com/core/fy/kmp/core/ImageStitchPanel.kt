@@ -248,9 +248,21 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         enabled = paths.size >= 2 && !busy && mode != ImageStitchMode.Panorama,
                         onClick = {
                             manualCrops = List(paths.size) { ImageStitchCrop() }
+                            seamOffsets = List(paths.size - 1) { 0 }
                             calibrating = true
                             result = null
-                            message = "请检查每张截图的裁切范围，确认后生成最终图片"
+                            previewPath = "${outputPath}.preview.png"
+                            message = "正在生成自动拼接预览…"
+                            busy = true
+                            val selectedPaths = paths.toList()
+                            val previewOutput = "${outputPath}.preview.png"
+                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars)
+                            scope.launch {
+                                runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, previewOutput, config) } }
+                                    .onSuccess { message = "自动拼接预览已生成，请选择接缝进行微调" }
+                                    .onFailure { message = it.message ?: "自动拼接预览失败"; calibrating = false }
+                                busy = false
+                            }
                         },
                     ) { Text("调整裁切并预览") }
                     if (busy) {
