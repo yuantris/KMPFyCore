@@ -99,7 +99,16 @@ pub fn stitch_scroll(
     }
 
     let width = u64::from(target_width);
-    let height = y.checked_add(u64::from(normalized.last().ok_or(StitchError::EmptyInput)?.height()))
+    let last_index = normalized.len().saturating_sub(1);
+    let last_image = normalized.last().ok_or(StitchError::EmptyInput)?;
+    let last_crop = if last_index == 0 {
+        0
+    } else {
+        (i64::from(overlaps[last_index - 1])
+            + i64::from(config.seam_offsets.get(last_index - 1).copied().unwrap_or(0)))
+            .clamp(0, i64::from(last_image.height().saturating_sub(1))) as u32
+    };
+    let height = y.checked_add(u64::from(last_image.height().saturating_sub(last_crop)))
         .ok_or(StitchError::OutputTooLarge)?;
     let (canvas_width, canvas_height, scale) = bounded_dimensions(width, height, config)?;
     let mut canvas = RgbaImage::from_pixel(
