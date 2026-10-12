@@ -89,7 +89,10 @@ pub fn stitch_scroll(
         y_positions.push(y);
         if index + 1 < normalized.len() {
             let overlap = u64::from(overlaps[index]);
-            y = y.checked_add(u64::from(image.height()).saturating_sub(overlap))
+            let automatic_step = i64::from(image.height().saturating_sub(overlaps[index]));
+            let manual_offset = i64::from(config.seam_offsets.get(index).copied().unwrap_or(0));
+            let adjusted_step = (automatic_step + manual_offset).max(1) as u64;
+            y = y.checked_add(adjusted_step)
                 .and_then(|v| v.checked_add(spacing))
                 .ok_or(StitchError::OutputTooLarge)?;
         }
