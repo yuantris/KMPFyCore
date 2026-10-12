@@ -340,7 +340,7 @@ mod tests {
         let mut b = RgbaImage::new(8, 20);
         for y in 0..20 {
             for x in 0..8 {
-                let color = Rgba([(y * 7) as u8, (x * 13) as u8, ((x + y) * 5) as u8, 255]);
+                let color = Rgba([(x * 73 + y * 37 + x * y * 11) as u8, (x * 19 + y * y * 3 + x * y * 7) as u8, (x * x * 5 + y * 29 + x * y * 13) as u8, 255]);
                 a.put_pixel(x, y, color);
                 b.put_pixel(x, y, color);
             }
