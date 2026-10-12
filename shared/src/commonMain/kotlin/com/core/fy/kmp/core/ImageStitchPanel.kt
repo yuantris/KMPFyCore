@@ -223,54 +223,8 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         }
                     }
                 }
-                itemsIndexed(seamOffsets, key = { index, _ -> "seam:$index" }) { index, offset ->
-                    var selected by remember { mutableStateOf(index == 0) }
-                    Surface(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                        border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                    ) {
-                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { selected = !selected }) {
-                                    Text(if (selected) "● 接缝 ${index + 1} 已选中" else "○ 选择接缝 ${index + 1}")
-                                }
-                                Spacer(Modifier.weight(1f))
-                                Text("偏移 ${offset}px", style = MaterialTheme.typography.labelMedium)
-                            }
-                            Text("${index + 1} ↔ ${index + 2}：${paths[index].substringAfterLast('/').substringAfterLast('\\')} / ${paths[index + 1].substringAfterLast('/').substringAfterLast('\\')}", style = MaterialTheme.typography.labelSmall)
-                            if (selected) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(enabled = !busy, onClick = {
-                                        seamOffsets = seamOffsets.toMutableList().also { it[index] = (it[index] - 4).coerceIn(-300, 300) }
-                                        result = null
-                                        busy = true
-                                        scope.launch {
-                                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
-                                            runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, previewPath ?: "${outputPath}.preview.png", config) } }
-                                                .onSuccess { previewPath = "${outputPath}.preview.png"; message = "已更新接缝预览" }
-                                                .onFailure { message = it.message ?: "预览生成失败" }
-                                            busy = false
-                                        }
-                                    }) { Text("上方 ↑ 4px") }
-                                    OutlinedButton(enabled = !busy, onClick = {
-                                        seamOffsets = seamOffsets.toMutableList().also { it[index] = (it[index] + 4).coerceIn(-300, 300) }
-                                        result = null
-                                        busy = true
-                                        scope.launch {
-                                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
-                                            runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, previewPath ?: "${outputPath}.preview.png", config) } }
-                                                .onSuccess { previewPath = "${outputPath}.preview.png"; message = "已更新接缝预览" }
-                                                .onFailure { message = it.message ?: "预览生成失败" }
-                                            busy = false
-                                        }
-                                    }) { Text("下方 ↓ 4px") }
-                                    TextButton(onClick = { seamOffsets = seamOffsets.toMutableList().also { it[index] = 0 }; result = null }) { Text("重置") }
-                                }
-                            }
-                        }
-                    }
+                item {
+                    Text("拖动长图上的横线即可移动接缝；偏移会自动应用到下方截图。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
