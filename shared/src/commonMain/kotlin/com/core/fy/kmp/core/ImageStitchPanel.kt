@@ -35,6 +35,8 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
     var modeMenu by remember { mutableStateOf(false) }
     var autoFixedBars by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
+    var calibrating by remember { mutableStateOf(false) }
+    var manualCrops by remember { mutableStateOf<List<ImageStitchCrop>>(emptyList()) }
     var result by remember { mutableStateOf<ImageStitchResult?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -56,11 +58,13 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     ImageStitchPicker { selected ->
                         paths = (paths + selected).distinct()
+                        manualCrops = List((paths + selected).distinct().size) { ImageStitchCrop() }
+                        calibrating = false
                         result = null
                         message = "已添加 ${selected.size} 张图片"
                     }
                     LiquidButton(
-                        onClick = { paths = emptyList(); result = null; message = null },
+                        onClick = { paths = emptyList(); manualCrops = emptyList(); calibrating = false; result = null; message = null },
                         backdrop = backdrop,
                     ) { Text("清空") }
                     Spacer(Modifier.weight(1f))
@@ -98,6 +102,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                     val item = list.removeAt(index)
                                     list.add(index - 1, item)
                                 }
+                                manualCrops = List(paths.size) { ImageStitchCrop() }
                                 result = null
                             }) { Text("↑") }
                             TextButton(enabled = index < paths.lastIndex && !busy, onClick = {
@@ -105,11 +110,13 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                     val item = list.removeAt(index)
                                     list.add(index + 1, item)
                                 }
+                                manualCrops = List(paths.size) { ImageStitchCrop() }
                                 result = null
                             }) { Text("↓") }
                         }
                         TextButton(enabled = !busy, onClick = {
                             paths = paths.toMutableList().also { it.removeAt(index) }
+                            manualCrops = manualCrops.filterIndexed { i, _ -> i != index }
                             result = null
                         }) { Text("移除") }
                     }
@@ -135,6 +142,101 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                     }
                 }
             }
+            if (calibrating) {
+                item {
+                    HorizontalDivider()
+                    Text("手动校准裁切", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "逐张调整顶部和底部裁切。滑块单位为原图像素；红框等固定导航区域可手动排除。调整后先确认，再生成最终长图。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                itemsIndexed(paths, key = { index, path -> "crop:$index:$path" }) { index, path ->
+                    val crop = manualCrops.getOrElse(index) { ImageStitchCrop() }
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    ) {
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                ImageStitchPreview(path, Modifier.width(56.dp).height(90.dp).clip(RoundedCornerShape(6.dp)))
+                                Column(Modifier.weight(1f)) {
+                                    Text("第 ${index + 1} 张截图", style = MaterialTheme.typography.titleSmall)
+                                    Text("顶部裁切 ${crop.top}px · 底部裁切 ${crop.bottom}px", style = MaterialTheme.typography.labelSmall)
+                                }
+                                TextButton(onClick = {
+                                    manualCrops = manualCrops.toMutableList().also { it[index] = ImageStitchCrop() }
+                                }, enabled = !busy) { Text("重置") }
+                            }
+                            Text("裁切顶部：${crop.top}px", style = MaterialTheme.typography.labelMedium)
+                            Slider(
+                                value = crop.top.toFloat(),
+                                onValueChange = { value ->
+                                    manualCrops = manualCrops.toMutableList().also {
+                                        it[index] = crop.copy(top = value.toInt())
+                                    }
+                                    result = null
+                                },
+                                valueRange = 0f..600f,
+                                steps = 59,
+                                enabled = !busy,
+                            )
+                            Text("裁切底部：${crop.bottom}px", style = MaterialTheme.typography.labelMedium)
+                            Slider(
+                                value = crop.bottom.toFloat(),
+                                onValueChange = { value ->
+                                    manualCrops = manualCrops.toMutableList().also {
+                                        it[index] = crop.copy(bottom = value.toInt())
+                                    }
+                                    result = null
+                                },
+                                valueRange = 0f..600f,
+                                steps = 59,
+                                enabled = !busy,
+                            )
+                        }
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { calibrating = false }, enabled = !busy) { Text("返回") }
+                        Button(
+                            enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy,
+                            onClick = {
+                                busy = true
+                                result = null
+                                message = "正在根据校准参数生成最终图片…"
+                                val selectedPaths = paths.toList()
+                                val selectedMode = mode
+                                val selectedOutput = outputPath
+                                val selectedCrops = manualCrops.toList()
+                                val config = ImageStitchConfig(
+                                    mode = selectedMode,
+                                    autoDetectFixedBars = autoFixedBars,
+                                    manualCrops = selectedCrops,
+                                )
+                                scope.launch {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            CoreRsPlatform.stitchFiles(selectedPaths, selectedOutput, config)
+                                        }
+                                    }.onSuccess {
+                                        result = it
+                                        calibrating = false
+                                        message = "已确认并生成：${it.width} × ${it.height}"
+                                    }.onFailure {
+                                        message = it.message ?: "拼接失败"
+                                    }
+                                    busy = false
+                                }
+                            },
+                        ) { Text(if (busy) "生成中…" else "确认并生成最终图片") }
+                    }
+                }
+            }
             item {
                 OutlinedTextField(
                     value = outputPath,
@@ -146,30 +248,14 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
-                        enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy && mode != ImageStitchMode.Panorama,
+                        enabled = paths.size >= 2 && !busy && mode != ImageStitchMode.Panorama,
                         onClick = {
-                            busy = true
+                            manualCrops = List(paths.size) { ImageStitchCrop() }
+                            calibrating = true
                             result = null
-                            message = "正在匹配并拼接…"
-                            val selectedPaths = paths.toList()
-                            val selectedMode = mode
-                            val selectedOutput = outputPath
-                            val config = ImageStitchConfig(mode = selectedMode, autoDetectFixedBars = autoFixedBars)
-                            scope.launch {
-                                runCatching {
-                                    withContext(Dispatchers.IO) {
-                                        CoreRsPlatform.stitchFiles(selectedPaths, selectedOutput, config)
-                                    }
-                                }.onSuccess {
-                                    result = it
-                                    message = "拼接完成：${it.width} × ${it.height}，${it.imageCount} 张图片"
-                                }.onFailure {
-                                    message = it.message ?: "拼接失败"
-                                }
-                                busy = false
-                            }
+                            message = "请检查每张截图的裁切范围，确认后生成最终图片"
                         },
-                    ) { Text(if (busy) "拼接中…" else "拼接并导出") }
+                    ) { Text("调整裁切并预览") }
                     if (busy) {
                         CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                     }
