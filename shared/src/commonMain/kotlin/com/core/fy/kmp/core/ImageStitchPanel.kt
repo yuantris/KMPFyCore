@@ -177,7 +177,6 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                     result = null
                                 }, enabled = !busy) { Text("重置") }
                             }
-                            var previewHeightPx by remember(path) { mutableStateOf(1f) }
                             BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 320.dp)) {
                                 val maxCrop = 600f
                                 val topFraction = (crop.top / maxCrop).coerceIn(0f, 0.45f)
@@ -201,7 +200,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                             .pointerInput(index, crop.top, busy) {
                                                 if (!busy) detectDragGestures { change, dragAmount ->
                                                     change.consume()
-                                                    val delta = (dragAmount.y / size.height * maxCrop).roundToInt()
+                                                    val delta = (dragAmount.y / (size.height * 10f) * maxCrop).roundToInt()
                                                     manualCrops = manualCrops.toMutableList().also {
                                                         it[index] = crop.copy(top = (crop.top + delta).coerceIn(0, 600))
                                                     }
@@ -218,7 +217,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                             .pointerInput(index, crop.bottom, busy) {
                                                 if (!busy) detectDragGestures { change, dragAmount ->
                                                     change.consume()
-                                                    val delta = (-dragAmount.y / size.height * maxCrop).roundToInt()
+                                                    val delta = (-dragAmount.y / (size.height * 10f) * maxCrop).roundToInt()
                                                     manualCrops = manualCrops.toMutableList().also {
                                                         it[index] = crop.copy(bottom = (crop.bottom + delta).coerceIn(0, 600))
                                                     }
