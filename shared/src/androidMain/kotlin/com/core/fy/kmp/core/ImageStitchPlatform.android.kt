@@ -44,7 +44,18 @@ actual fun ImageStitchPicker(onImagesSelected: (List<String>) -> Unit) {
 
 @Composable
 actual fun ImageStitchPreview(path: String, modifier: Modifier) {
-    val bitmap = remember(path) { runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() }
+    val bitmap = remember(path) {
+        runCatching {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, bounds)
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > 1200 || bounds.outHeight / sampleSize > 1600) {
+                sampleSize *= 2
+            }
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            BitmapFactory.decodeFile(path, options)?.asImageBitmap()
+        }.getOrNull()
+    }
     if (bitmap != null) {
         Image(bitmap, contentDescription = path, modifier = modifier, contentScale = ContentScale.Fit)
     } else {
