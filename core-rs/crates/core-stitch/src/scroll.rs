@@ -35,6 +35,29 @@ pub fn stitch_scroll(
         }
     }).collect();
 
+    // Remove screen-fixed status/navigation bars before matching. These pixels
+    // are not part of the scrolling document and otherwise bias overlap scores.
+    let detected = if config.auto_detect_fixed_bars {
+        detect_fixed_bars(&normalized)
+    } else {
+        (0, 0)
+    };
+    let header = if config.fixed_header_height > 0 {
+        config.fixed_header_height
+    } else {
+        detected.0
+    };
+    let footer = if config.fixed_footer_height > 0 {
+        config.fixed_footer_height
+    } else {
+        detected.1
+    };
+    let normalized: Vec<RgbaImage> = normalized.iter().map(|image| {
+        let top = header.min(image.height().saturating_sub(1));
+        let bottom = footer.min(image.height().saturating_sub(top + 1));
+        imageops::crop_imm(image, 0, top, image.width(), image.height() - top - bottom).to_image()
+    }).collect();
+
     let mut overlaps = Vec::with_capacity(normalized.len().saturating_sub(1));
     let mut confidences = Vec::with_capacity(normalized.len().saturating_sub(1));
     for index in 0..normalized.len().saturating_sub(1) {
@@ -127,6 +150,52 @@ pub fn stitch_scroll(
     })
 }
 
+
+/// Detect common fixed rows at the top and bottom of consecutive screenshots.
+/// Only long, nearly identical edge bands are treated as chrome; short accidental
+/// matches in repeated content are ignored.
+fn detect_fixed_bars(images: &[RgbaImage]) -> (u32, u32) {
+    if images.len() < 2 {
+        return (0, 0);
+    }
+    let height = images.iter().map(RgbaImage::height).min().unwrap_or(0);
+    let width = images.iter().map(RgbaImage::width).min().unwrap_or(0);
+    if height < 40 || width == 0 {
+        return (0, 0);
+    }
+    let limit = (height / 6).max(1);
+    let row_matches = |y: u32| -> bool {
+        let mut error = 0.0f64;
+        let mut count = 0u64;
+        let x_step = (width / 128).max(1);
+        for image in images.iter().skip(1) {
+            for x in (0..width).step_by(x_step as usize) {
+                let a = images[0].get_pixel(x, y).0;
+                let b = image.get_pixel(x, y).0;
+                error += (luminance(a) - luminance(b)).abs() as f64 / 255.0;
+                count += 1;
+            }
+        }
+        count > 0 && error / count as f64 < 0.025
+    };
+    let mut top = 0;
+    while top < limit && row_matches(top) {
+        top += 1;
+    }
+    let mut bottom = 0;
+    while bottom < limit && row_matches(height - 1 - bottom) {
+        bottom += 1;
+    }
+    let minimum_band = (height / 100).max(8);
+    if top < minimum_band { top = 0; }
+    if bottom < minimum_band { bottom = 0; }
+    if top + bottom >= height / 3 {
+        (0, 0)
+    } else {
+        (top, bottom)
+    }
+}
+
 fn best_overlap(
     upper: &RgbaImage,
     lower: &RgbaImage,
@@ -147,19 +216,24 @@ fn best_overlap(
     let coarse_step = 1u32.max((max_overlap - min_overlap) / 128);
     let mut best = (min_overlap, f32::NEG_INFINITY);
 
+    let mut runner_up = f32::NEG_INFINITY;
     let mut overlap = min_overlap;
     while overlap <= max_overlap {
         let score = overlap_score(upper, lower, overlap, x_step, max_height);
         if score > best.1 {
+            if best.0.abs_diff(overlap) > (max_height / 50).max(4) {
+                runner_up = best.1.max(runner_up);
+            }
             best = (overlap, score);
+        } else if best.0.abs_diff(overlap) > (max_height / 50).max(4) {
+            runner_up = runner_up.max(score);
         }
         overlap = overlap.saturating_add(coarse_step);
         if overlap == u32::MAX { break; }
     }
 
-    // Refine around the best coarse candidate so ordinary phone screenshot
-    // sizes do not lose accuracy merely because the coarse stride is larger
-    // than one pixel.
+    // Refine around the best coarse candidate so irregular scroll distances
+    // can still land on the exact pixel offset.
     let refine_start = best.0.saturating_sub(coarse_step).max(min_overlap);
     let refine_end = best.0.saturating_add(coarse_step).min(max_overlap);
     for candidate in refine_start..=refine_end {
@@ -169,7 +243,16 @@ fn best_overlap(
         }
     }
 
-    (best.0, best.1.clamp(0.0, 1.0))
+    // Similar-looking candidate offsets indicate repeated rows or low-texture
+    // regions. Penalize ambiguous matches instead of confidently duplicating
+    // content. A weak match will fail the configured confidence threshold.
+    let uniqueness = if runner_up.is_finite() {
+        ((best.1 - runner_up).max(0.0) / 0.08).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    let confidence = best.1.clamp(0.0, 1.0) * (0.4 + 0.6 * uniqueness);
+    (best.0, confidence)
 }
 
 fn overlap_score(
