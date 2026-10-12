@@ -33,7 +33,24 @@ actual fun ImageStitchPicker(onImagesSelected: (List<String>) -> Unit) {
 @Composable
 actual fun ImageStitchPreview(path: String, modifier: Modifier) {
     val bitmap = remember(path) {
-        runCatching { ImageIO.read(File(path))?.toComposeImageBitmap() }.getOrNull()
+        runCatching {
+            ImageIO.createImageInputStream(File(path)).use { stream ->
+                val reader = ImageIO.getImageReaders(stream).asSequence().firstOrNull()
+                    ?: error("不支持预览该图片格式")
+                reader.input = stream
+                try {
+                    var sampleSize = 1
+                    while (reader.getWidth(0) / sampleSize > 1200 || reader.getHeight(0) / sampleSize > 1600) {
+                        sampleSize *= 2
+                    }
+                    val params = reader.defaultReadParam
+                    params.setSourceSubsampling(sampleSize, sampleSize, 0, 0)
+                    reader.read(0, params).toComposeImageBitmap()
+                } finally {
+                    reader.dispose()
+                }
+            }
+        }.getOrNull()
     }
     if (bitmap != null) {
         Image(bitmap, contentDescription = path, modifier = modifier, contentScale = ContentScale.Fit)
