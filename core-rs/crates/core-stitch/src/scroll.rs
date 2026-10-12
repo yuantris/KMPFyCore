@@ -131,7 +131,7 @@ pub fn stitch_scroll(
             x: 0,
             y: (y_positions[index] as f64 * scale) as i64,
             crop_x: 0,
-            crop_y,
+            crop_y: crop_y.saturating_add(header),
             crop_width: image.width(),
             crop_height: source_height,
             confidence: if index == 0 { 1.0 } else { confidences[index - 1] },
@@ -316,6 +316,23 @@ fn bounded_dimensions(width: u64, height: u64, config: &StitchConfig) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    
+    #[test]
+    fn detects_common_fixed_header_and_footer() {
+        let mut first = RgbaImage::new(64, 100);
+        let mut second = RgbaImage::new(64, 100);
+        for y in 0..100 {
+            for x in 0..64 {
+                let fixed = y < 10 || y >= 88;
+                let value = if fixed { (x * 3 + y) as u8 } else { (x * 7 + y * 11) as u8 };
+                first.put_pixel(x, y, Rgba([value, value, value, 255]));
+                let second_value = if fixed { value } else { (x * 13 + y * 5) as u8 };
+                second.put_pixel(x, y, Rgba([second_value, second_value, second_value, 255]));
+            }
+        }
+        assert_eq!(detect_fixed_bars(&[first, second]), (10, 12));
+    }
 
     #[test]
     fn exact_overlapping_rows_are_detected() {
