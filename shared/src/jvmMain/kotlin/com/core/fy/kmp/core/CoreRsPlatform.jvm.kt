@@ -113,6 +113,7 @@ actual object CoreRsPlatform {
             .put("auto_detect_fixed_bars", config.autoDetectFixedBars)
             .put("fixed_header_height", config.fixedHeaderHeight)
             .put("fixed_footer_height", config.fixedFooterHeight)
+            .put("manual_crops", JSONArray().apply { config.manualCrops.forEach { put(JSONArray().put(it.top).put(it.bottom)) } })
             .put("blend", config.blend)
             .put("output_format", config.outputFormat)
             .put("columns", config.columns)
