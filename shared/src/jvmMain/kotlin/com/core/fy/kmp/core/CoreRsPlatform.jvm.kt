@@ -114,6 +114,7 @@ actual object CoreRsPlatform {
             .put("fixed_header_height", config.fixedHeaderHeight)
             .put("fixed_footer_height", config.fixedFooterHeight)
             .put("manual_crops", JSONArray().apply { config.manualCrops.forEach { put(JSONArray().put(it.top).put(it.bottom)) } })
+            .put("seam_offsets", JSONArray().apply { config.seamOffsets.forEach { put(it) } })
             .put("blend", config.blend)
             .put("output_format", config.outputFormat)
             .put("columns", config.columns)
