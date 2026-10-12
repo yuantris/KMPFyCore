@@ -60,4 +60,11 @@ object CoreRsNative {
 
     @JvmStatic external fun nativeApkIsApk(path: String): Boolean
     @JvmStatic external fun nativeApkEntries(path: String): String
+
+    /** Stitch filesystem images; inputPathsJson is a JSON array of absolute paths. */
+    @JvmStatic external fun nativeStitch(
+        inputPathsJson: String,
+        outputPath: String,
+        configJson: String,
+    ): String
 }
