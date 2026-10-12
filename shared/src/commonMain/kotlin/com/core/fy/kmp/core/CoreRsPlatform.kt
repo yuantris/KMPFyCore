@@ -32,6 +32,8 @@ data class ImageStitchConfig(
     val fixedHeaderHeight: Int = 0,
     val fixedFooterHeight: Int = 0,
     val manualCrops: List<ImageStitchCrop> = emptyList(),
+    /** Signed pixel adjustment for each seam; positive moves the lower image down. */
+    val seamOffsets: List<Int> = emptyList(),
     val blend: Boolean = true,
     val outputFormat: String = "png",
     val columns: Int = 0,
