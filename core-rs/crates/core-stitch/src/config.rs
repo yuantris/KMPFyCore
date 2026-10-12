@@ -24,6 +24,12 @@ pub struct StitchConfig {
     pub min_overlap_ratio: f32,
     pub max_overlap_ratio: f32,
     pub min_confidence: f32,
+    /// Automatically detect and remove common fixed top/bottom bars before matching.
+    pub auto_detect_fixed_bars: bool,
+    /// Explicit fixed header crop in pixels, applied after automatic detection.
+    pub fixed_header_height: u32,
+    /// Explicit fixed footer crop in pixels, applied after automatic detection.
+    pub fixed_footer_height: u32,
     pub blend: bool,
     pub output_format: String,
     /// Grid columns; 0 selects a near-square grid.
@@ -43,6 +49,9 @@ impl Default for StitchConfig {
             min_overlap_ratio: 0.10,
             max_overlap_ratio: 0.85,
             min_confidence: 0.45,
+            auto_detect_fixed_bars: true,
+            fixed_header_height: 0,
+            fixed_footer_height: 0,
             blend: true,
             output_format: "png".into(),
             columns: 0,
