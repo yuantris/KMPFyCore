@@ -110,14 +110,22 @@ pub fn stitch_scroll(
     let mut segments = Vec::with_capacity(normalized.len());
 
     for (index, image) in normalized.iter().enumerate() {
-        let crop_y = if index == 0 { 0 } else { overlaps[index - 1] };
+        // The next image is placed at y_positions[index]. Adjust its top crop
+        // by the same seam delta: moving it down crops more of its top, moving
+        // it up reveals more of its top. This keeps the seam contiguous.
+        let crop_y = if index == 0 {
+            0
+        } else {
+            let base = i64::from(overlaps[index - 1]);
+            let delta = i64::from(config.seam_offsets.get(index - 1).copied().unwrap_or(0));
+            (base + delta).clamp(0, i64::from(image.height().saturating_sub(1))) as u32
+        };
         let source_height = image.height().saturating_sub(crop_y);
         let remaining = (canvas_height as f64 / scale).ceil() as u64;
-        let y_source = y_positions[index].saturating_add(u64::from(crop_y));
+        let y_source = y_positions[index];
         let visible_height = u64::from(source_height).min(remaining.saturating_sub(y_source));
         if visible_height > 0 {
             let crop = imageops::crop_imm(image, 0, crop_y, image.width(), visible_height as u32).to_image();
-            let x = 0u32;
             let y_dest = (y_source as f64 * scale).round().max(0.0) as u32;
             let resized = if (scale - 1.0).abs() > f64::EPSILON {
                 imageops::resize(
@@ -130,7 +138,7 @@ pub fn stitch_scroll(
                 crop
             };
             if y_dest < canvas.height() {
-                imageops::overlay(&mut canvas, &resized, i64::from(x), i64::from(y_dest));
+                imageops::overlay(&mut canvas, &resized, 0, i64::from(y_dest));
             }
         }
         segments.push(StitchSegment {
