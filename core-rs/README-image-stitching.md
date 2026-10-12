@@ -8,8 +8,11 @@ and stitching API.
 - core-image: decode/encode PNG, JPEG, WebP and BMP through the image crate,
   normalize to RGBA, and enforce a default pixel budget.
 - core-stitch: vertical, horizontal and grid layouts; pure-Rust overlap
-  search for consecutive vertical scrolling screenshots; JSON configuration
-  and result metadata.
+  search for consecutive vertical scrolling screenshots; automatic fixed top/bottom
+  bar detection and cropping; ambiguity penalties for repeated content; configurable
+  overlap range for irregular scroll distances; JSON configuration and result metadata.
+- Compose Multiplatform: image selection on Android and desktop, manual ordering,
+  scroll/layout mode selection, indeterminate progress, output preview and export path.
 - Android/JVM JNI: CoreRsNative.nativeStitch(inputPathsJson, outputPath,
   configJson). Inputs are filesystem paths. Android content:// URIs must first
   be copied to a readable temporary file by the platform layer.
@@ -25,8 +28,11 @@ StitchConfig::default(). Example:
       "mode": "vertical",
       "max_width": 4096,
       "max_height": 30000,
-      "min_overlap_ratio": 0.1,
-      "max_overlap_ratio": 0.85,
+      "min_overlap_ratio": 0.05,
+      "max_overlap_ratio": 0.95,
+      "auto_detect_fixed_bars": true,
+      "fixed_header_height": 0,
+      "fixed_footer_height": 0,
       "min_confidence": 0.45,
       "blend": false,
       "output_format": "png",
@@ -58,9 +64,8 @@ network-enabled Rust environment, then commit the resulting Cargo.lock.
 
 ## Planned next steps
 
-1. Improve scroll matching with multi-scale matching, fixed-header masks,
-   confidence calibration, and manual offset correction.
-2. Add cancellable task handles and incremental progress reporting.
-3. Add the optional core-stitch-opencv crate for ORB/RANSAC panorama
-   registration and seam blending.
-4. Add shared Compose UI and platform-specific file/URI adapters.
+1. Add multi-scale and local-feature fallback matching for low-texture screenshots,
+   plus optional manual fixed-bar crop overrides in the UI.
+2. Add cancellable task handles and native incremental progress reporting.
+3. Only after the core matcher and UI are stable, add the optional
+   core-stitch-opencv crate for ORB/RANSAC panorama registration and seam blending.
