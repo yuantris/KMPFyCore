@@ -176,7 +176,7 @@ fn detect_fixed_bars(images: &[RgbaImage]) -> (u32, u32) {
                 count += 1;
             }
         }
-        count > 0 && error / count as f64 < 0.025
+        count > 0 && error / (count as f64) < 0.025
     };
     let mut top = 0;
     while top < limit && row_matches(top) {
