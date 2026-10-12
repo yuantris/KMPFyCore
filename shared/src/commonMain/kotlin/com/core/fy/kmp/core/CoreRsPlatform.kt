@@ -19,6 +19,8 @@ data class ZipEntryInfo(val name: String, val compressedSize: Long, val uncompre
 
 enum class ImageStitchMode { Scroll, Panorama, Vertical, Horizontal, Grid, Auto }
 
+data class ImageStitchCrop(val top: Int = 0, val bottom: Int = 0)
+
 data class ImageStitchConfig(
     val mode: ImageStitchMode = ImageStitchMode.Scroll,
     val maxWidth: Int = 0,
@@ -29,6 +31,7 @@ data class ImageStitchConfig(
     val autoDetectFixedBars: Boolean = true,
     val fixedHeaderHeight: Int = 0,
     val fixedFooterHeight: Int = 0,
+    val manualCrops: List<ImageStitchCrop> = emptyList(),
     val blend: Boolean = true,
     val outputFormat: String = "png",
     val columns: Int = 0,
