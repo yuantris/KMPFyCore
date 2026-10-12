@@ -25,14 +25,18 @@ pub fn stitch_scroll(
         return Err(StitchError::InvalidDimensions);
     }
 
-    let normalized: Vec<RgbaImage> = images.iter().map(|image| {
-        if image.width() == target_width {
+    let normalized: Vec<RgbaImage> = images.iter().enumerate().map(|(index, image)| {
+        let resized = if image.width() == target_width {
             image.clone()
         } else {
             let height = (u64::from(image.height()) * u64::from(target_width)
                 / u64::from(image.width())).max(1) as u32;
             imageops::resize(image, target_width, height, imageops::FilterType::Lanczos3)
-        }
+        };
+        let crop = config.manual_crops.get(index).copied().unwrap_or([0, 0]);
+        let top = crop[0].min(resized.height().saturating_sub(1));
+        let bottom = crop[1].min(resized.height().saturating_sub(top + 1));
+        imageops::crop_imm(&resized, 0, top, resized.width(), resized.height() - top - bottom).to_image()
     }).collect();
 
     // Remove screen-fixed status/navigation bars before matching. These pixels
@@ -131,7 +135,7 @@ pub fn stitch_scroll(
             x: 0,
             y: (y_positions[index] as f64 * scale) as i64,
             crop_x: 0,
-            crop_y: crop_y.saturating_add(header),
+            crop_y: crop_y.saturating_add(header).saturating_add(config.manual_crops.get(index).map(|crop| crop[0]).unwrap_or(0)),
             crop_width: image.width(),
             crop_height: source_height,
             confidence: if index == 0 { 1.0 } else { confidences[index - 1] },
