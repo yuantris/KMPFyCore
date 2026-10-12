@@ -31,7 +31,8 @@ expect fun defaultStitchOutputPath(): String
 @Composable
 fun ImageStitchPanel(backdrop: LayerBackdrop) {
     var paths by remember { mutableStateOf<List<String>>(emptyList()) }
-    var outputPath by remember { mutableStateOf(defaultStitchOutputPath()) }
+    val defaultOutputPath = defaultStitchOutputPath()
+    var outputPath by remember { mutableStateOf(defaultOutputPath) }
     var mode by remember { mutableStateOf(ImageStitchMode.Scroll) }
     var modeMenu by remember { mutableStateOf(false) }
     var autoFixedBars by remember { mutableStateOf(true) }
@@ -55,14 +56,11 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    LiquidButton(
-                        onClick = { ImageStitchPicker { selected ->
-                            paths = (paths + selected).distinct()
-                            result = null
-                            message = "已添加 ${selected.size} 张图片"
-                        } },
-                        backdrop = backdrop,
-                    ) { Text("选择图片") }
+                    ImageStitchPicker { selected ->
+                        paths = (paths + selected).distinct()
+                        result = null
+                        message = "已添加 ${selected.size} 张图片"
+                    }
                     LiquidButton(
                         onClick = { paths = emptyList(); result = null; message = null },
                         backdrop = backdrop,
