@@ -43,6 +43,8 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
     var busy by remember { mutableStateOf(false) }
     var calibrating by remember { mutableStateOf(false) }
     var manualCrops by remember { mutableStateOf<List<ImageStitchCrop>>(emptyList()) }
+    var seamOffsets by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var previewPath by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<ImageStitchResult?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -65,12 +67,14 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                     ImageStitchPicker { selected ->
                         paths = (paths + selected).distinct()
                         manualCrops = List((paths + selected).distinct().size) { ImageStitchCrop() }
+                        seamOffsets = List((paths + selected).distinct().size - 1) { 0 }
+                        previewPath = null
                         calibrating = false
                         result = null
                         message = "已添加 ${selected.size} 张图片"
                     }
                     LiquidButton(
-                        onClick = { paths = emptyList(); manualCrops = emptyList(); calibrating = false; result = null; message = null },
+                        onClick = { paths = emptyList(); manualCrops = emptyList(); seamOffsets = emptyList(); previewPath = null; calibrating = false; result = null; message = null },
                         backdrop = backdrop,
                     ) { Text("清空") }
                     Spacer(Modifier.weight(1f))
@@ -151,131 +155,82 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
             if (calibrating) {
                 item {
                     HorizontalDivider()
-                    Text("手动校准裁切", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "逐张调整顶部和底部裁切。滑块单位为原图像素；红框等固定导航区域可手动排除。调整后先确认，再生成最终长图。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("接缝校准", style = MaterialTheme.typography.titleMedium)
+                    Text("先查看自动拼接的连续长图。点击接缝，再微调接缝上方或下方的截图；每次调整都会重新生成预览。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                itemsIndexed(paths, key = { index, path -> "crop:$index:$path" }) { index, path ->
-                    val crop = manualCrops.getOrElse(index) { ImageStitchCrop() }
+                item {
+                    val preview = previewPath
+                    if (preview != null) {
+                        ImageStitchPreview(preview, Modifier.fillMaxWidth().heightIn(max = 680.dp).clip(RoundedCornerShape(12.dp)))
+                    } else {
+                        Surface(Modifier.fillMaxWidth().height(180.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Box(contentAlignment = Alignment.Center) { Text("正在生成自动拼接预览…") }
+                        }
+                    }
+                }
+                itemsIndexed(seamOffsets, key = { index, _ -> "seam:$index" }) { index, offset ->
+                    var selected by remember { mutableStateOf(index == 0) }
                     Surface(
                         Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
                     ) {
-                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("第 ${index + 1} 张截图", style = MaterialTheme.typography.titleSmall)
-                                    Text("拖动图片上的上下边界，直接调整裁切位置", style = MaterialTheme.typography.labelSmall)
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { selected = !selected }) {
+                                    Text(if (selected) "● 接缝 ${index + 1} 已选中" else "○ 选择接缝 ${index + 1}")
                                 }
-                                TextButton(onClick = {
-                                    manualCrops = manualCrops.toMutableList().also { it[index] = ImageStitchCrop() }
-                                    result = null
-                                }, enabled = !busy) { Text("重置") }
+                                Spacer(Modifier.weight(1f))
+                                Text("偏移 ${offset}px", style = MaterialTheme.typography.labelMedium)
                             }
-                            BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 320.dp)) {
-                                val maxCrop = 600f
-                                val topFraction = (crop.top / maxCrop).coerceIn(0f, 0.45f)
-                                val bottomFraction = (crop.bottom / maxCrop).coerceIn(0f, 0.45f)
-                                Box(Modifier.fillMaxWidth().height(280.dp)) {
-                                    ImageStitchPreview(path, Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)))
-                                    Box(
-                                        Modifier.fillMaxWidth().fillMaxHeight(topFraction)
-                                            .align(Alignment.TopCenter)
-                                            .background(Color(0x66000000))
-                                    )
-                                    Box(
-                                        Modifier.fillMaxWidth().fillMaxHeight(bottomFraction)
-                                            .align(Alignment.BottomCenter)
-                                            .background(Color(0x66000000))
-                                    )
-                                    Box(
-                                        Modifier.fillMaxWidth().height(28.dp)
-                                            .align(Alignment.TopCenter)
-                                            .offset { IntOffset(0, (topFraction * 280.dp.toPx()).roundToInt()) }
-                                            .pointerInput(index, crop.top, busy) {
-                                                if (!busy) detectDragGestures { change, dragAmount ->
-                                                    change.consume()
-                                                    val delta = (dragAmount.y / (size.height * 10f) * maxCrop).roundToInt()
-                                                    manualCrops = manualCrops.toMutableList().also {
-                                                        it[index] = crop.copy(top = (crop.top + delta).coerceIn(0, 600))
-                                                    }
-                                                    result = null
-                                                }
-                                            }
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)),
-                                        contentAlignment = Alignment.Center,
-                                    ) { Text("拖动裁切顶部", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall) }
-                                    Box(
-                                        Modifier.fillMaxWidth().height(28.dp)
-                                            .align(Alignment.BottomCenter)
-                                            .offset { IntOffset(0, -(bottomFraction * 280.dp.toPx()).roundToInt()) }
-                                            .pointerInput(index, crop.bottom, busy) {
-                                                if (!busy) detectDragGestures { change, dragAmount ->
-                                                    change.consume()
-                                                    val delta = (-dragAmount.y / (size.height * 10f) * maxCrop).roundToInt()
-                                                    manualCrops = manualCrops.toMutableList().also {
-                                                        it[index] = crop.copy(bottom = (crop.bottom + delta).coerceIn(0, 600))
-                                                    }
-                                                    result = null
-                                                }
-                                            }
-                                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.85f)),
-                                        contentAlignment = Alignment.Center,
-                                    ) { Text("拖动裁切底部", color = MaterialTheme.colorScheme.onTertiary, style = MaterialTheme.typography.labelSmall) }
+                            Text("${index + 1} ↔ ${index + 2}：${paths[index].substringAfterLast('/').substringAfterLast('\\')} / ${paths[index + 1].substringAfterLast('/').substringAfterLast('\\')}", style = MaterialTheme.typography.labelSmall)
+                            if (selected) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(enabled = !busy, onClick = {
+                                        seamOffsets = seamOffsets.toMutableList().also { it[index] = (it[index] - 4).coerceIn(-300, 300) }
+                                        result = null
+                                        busy = true
+                                        scope.launch {
+                                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
+                                            runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, previewPath ?: "${outputPath}.preview.png", config) } }
+                                                .onSuccess { previewPath = "${outputPath}.preview.png"; message = "已更新接缝预览" }
+                                                .onFailure { message = it.message ?: "预览生成失败" }
+                                            busy = false
+                                        }
+                                    }) { Text("上方 ↑ 4px") }
+                                    OutlinedButton(enabled = !busy, onClick = {
+                                        seamOffsets = seamOffsets.toMutableList().also { it[index] = (it[index] + 4).coerceIn(-300, 300) }
+                                        result = null
+                                        busy = true
+                                        scope.launch {
+                                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
+                                            runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, previewPath ?: "${outputPath}.preview.png", config) } }
+                                                .onSuccess { previewPath = "${outputPath}.preview.png"; message = "已更新接缝预览" }
+                                                .onFailure { message = it.message ?: "预览生成失败" }
+                                            busy = false
+                                        }
+                                    }) { Text("下方 ↓ 4px") }
+                                    TextButton(onClick = { seamOffsets = seamOffsets.toMutableList().also { it[index] = 0 }; result = null }) { Text("重置") }
                                 }
                             }
-                            Text("顶部裁切：${crop.top}px", style = MaterialTheme.typography.labelMedium)
-                            Slider(value = crop.top.toFloat(), onValueChange = { value ->
-                                manualCrops = manualCrops.toMutableList().also { it[index] = crop.copy(top = value.toInt()) }
-                                result = null
-                            }, valueRange = 0f..600f, steps = 59, enabled = !busy)
-                            Text("底部裁切：${crop.bottom}px", style = MaterialTheme.typography.labelMedium)
-                            Slider(value = crop.bottom.toFloat(), onValueChange = { value ->
-                                manualCrops = manualCrops.toMutableList().also { it[index] = crop.copy(bottom = value.toInt()) }
-                                result = null
-                            }, valueRange = 0f..600f, steps = 59, enabled = !busy)
                         }
                     }
                 }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { calibrating = false }, enabled = !busy) { Text("返回") }
-                        Button(
-                            enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy,
-                            onClick = {
-                                busy = true
-                                result = null
-                                message = "正在根据校准参数生成最终图片…"
-                                val selectedPaths = paths.toList()
-                                val selectedMode = mode
-                                val selectedOutput = outputPath
-                                val selectedCrops = manualCrops.toList()
-                                val config = ImageStitchConfig(
-                                    mode = selectedMode,
-                                    autoDetectFixedBars = autoFixedBars,
-                                    manualCrops = selectedCrops,
-                                )
-                                scope.launch {
-                                    runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            CoreRsPlatform.stitchFiles(selectedPaths, selectedOutput, config)
-                                        }
-                                    }.onSuccess {
-                                        result = it
-                                        calibrating = false
-                                        message = "已确认并生成：${it.width} × ${it.height}"
-                                    }.onFailure {
-                                        message = it.message ?: "拼接失败"
-                                    }
-                                    busy = false
-                                }
-                            },
-                        ) { Text(if (busy) "生成中…" else "确认并生成最终图片") }
+                        Button(enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy, onClick = {
+                            busy = true
+                            val selectedPaths = paths.toList()
+                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
+                            scope.launch {
+                                runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, outputPath, config) } }
+                                    .onSuccess { result = it; calibrating = false; message = "已生成最终图片：${it.width} × ${it.height}" }
+                                    .onFailure { message = it.message ?: "最终拼接失败" }
+                                busy = false
+                            }
+                        }) { Text(if (busy) "处理中…" else "确认并导出") }
                     }
                 }
             }
