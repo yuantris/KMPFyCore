@@ -36,7 +36,7 @@ import kotlin.math.log10
 import kotlin.math.pow
 
 private enum class CoreTab(val title: String, val symbol: String) {
-    Math("数学", "ƒ"), Graph("绘图", "∿"), Search("搜索", "⌕"), Binary("文件", "zip")
+    Math("数学", "ƒ"), Graph("绘图", "∿"), Search("搜索", "⌕"), Binary("文件", "zip"), Stitch("拼接", "▧")
 }
 
 @Composable
@@ -64,6 +64,7 @@ fun CorePlaygroundContent() {
                     CoreTab.Graph -> GraphPanel(backdrop)
                     CoreTab.Search -> SearchPanel(backdrop)
                     CoreTab.Binary -> BinaryPanel(backdrop)
+                    CoreTab.Stitch -> ImageStitchPanel(backdrop)
                 }
             }
             Spacer(Modifier.height(10.dp))
