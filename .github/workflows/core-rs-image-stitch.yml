@@ -13,8 +13,11 @@ on:
       - "core-rs/bindings/jvm/**"
       - "core-rs/bindings/ffi/**"
       - "shared/src/commonMain/kotlin/com/core/fy/kmp/core/CoreRsPlatform.kt"
+      - "shared/src/commonMain/kotlin/com/core/fy/kmp/core/ImageStitchPanel.kt"
       - "shared/src/androidMain/kotlin/com/core/fy/kmp/core/CoreRsPlatform.android.kt"
+      - "shared/src/androidMain/kotlin/com/core/fy/kmp/core/ImageStitchPlatform.android.kt"
       - "shared/src/jvmMain/kotlin/com/core/fy/kmp/core/CoreRsPlatform.jvm.kt"
+      - "shared/src/jvmMain/kotlin/com/core/fy/kmp/core/ImageStitchPlatform.jvm.kt"
       - "shared/src/jvmMain/kotlin/io/core/rs/CoreRsNative.kt"
       - ".github/workflows/core-rs-image-stitch.yml"
   pull_request:
@@ -37,6 +40,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-ndk for Android native build
+        run: cargo install cargo-ndk --locked
       - name: Test pure Rust image modules
         run: cargo test -p core-image -p core-stitch
       - name: Check Android, JVM and C FFI bindings
