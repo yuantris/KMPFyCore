@@ -75,6 +75,11 @@ expect object CoreRsPlatform {
     fun zipContains(path: String, name: String): Boolean
     fun apkIsApk(path: String): Boolean
     fun apkEntries(path: String): List<ZipEntryInfo>
+    fun stitchFiles(
+        inputPaths: List<String>,
+        outputPath: String,
+        config: ImageStitchConfig = ImageStitchConfig(),
+    ): ImageStitchResult
 }
 expect class CoreSearch : AutoCloseable {
     fun add(id: Long, text: String)
