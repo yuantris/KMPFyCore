@@ -1,6 +1,8 @@
 package com.core.fy.kmp.core
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.dp
 import com.core.fy.kmp.components.LiquidButton
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -162,41 +168,78 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                     ) {
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                ImageStitchPreview(path, Modifier.width(56.dp).height(90.dp).clip(RoundedCornerShape(6.dp)))
                                 Column(Modifier.weight(1f)) {
                                     Text("第 ${index + 1} 张截图", style = MaterialTheme.typography.titleSmall)
-                                    Text("顶部裁切 ${crop.top}px · 底部裁切 ${crop.bottom}px", style = MaterialTheme.typography.labelSmall)
+                                    Text("拖动图片上的上下边界，直接调整裁切位置", style = MaterialTheme.typography.labelSmall)
                                 }
                                 TextButton(onClick = {
                                     manualCrops = manualCrops.toMutableList().also { it[index] = ImageStitchCrop() }
+                                    result = null
                                 }, enabled = !busy) { Text("重置") }
                             }
-                            Text("裁切顶部：${crop.top}px", style = MaterialTheme.typography.labelMedium)
-                            Slider(
-                                value = crop.top.toFloat(),
-                                onValueChange = { value ->
-                                    manualCrops = manualCrops.toMutableList().also {
-                                        it[index] = crop.copy(top = value.toInt())
-                                    }
-                                    result = null
-                                },
-                                valueRange = 0f..600f,
-                                steps = 59,
-                                enabled = !busy,
-                            )
-                            Text("裁切底部：${crop.bottom}px", style = MaterialTheme.typography.labelMedium)
-                            Slider(
-                                value = crop.bottom.toFloat(),
-                                onValueChange = { value ->
-                                    manualCrops = manualCrops.toMutableList().also {
-                                        it[index] = crop.copy(bottom = value.toInt())
-                                    }
-                                    result = null
-                                },
-                                valueRange = 0f..600f,
-                                steps = 59,
-                                enabled = !busy,
-                            )
+                            var previewHeightPx by remember(path) { mutableStateOf(1f) }
+                            BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 320.dp)) {
+                                val maxCrop = 600f
+                                val topFraction = (crop.top / maxCrop).coerceIn(0f, 0.45f)
+                                val bottomFraction = (crop.bottom / maxCrop).coerceIn(0f, 0.45f)
+                                Box(Modifier.fillMaxWidth().height(280.dp)) {
+                                    ImageStitchPreview(path, Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)))
+                                    Box(
+                                        Modifier.fillMaxWidth().fillMaxHeight(topFraction)
+                                            .align(Alignment.TopCenter)
+                                            .background(Color(0x66000000))
+                                    )
+                                    Box(
+                                        Modifier.fillMaxWidth().fillMaxHeight(bottomFraction)
+                                            .align(Alignment.BottomCenter)
+                                            .background(Color(0x66000000))
+                                    )
+                                    Box(
+                                        Modifier.fillMaxWidth().height(28.dp)
+                                            .align(Alignment.TopCenter)
+                                            .offset { IntOffset(0, (topFraction * 280.dp.toPx()).roundToInt()) }
+                                            .pointerInput(index, crop.top, busy) {
+                                                if (!busy) detectDragGestures { change, dragAmount ->
+                                                    change.consume()
+                                                    val delta = (dragAmount.y / size.height * maxCrop).roundToInt()
+                                                    manualCrops = manualCrops.toMutableList().also {
+                                                        it[index] = crop.copy(top = (crop.top + delta).coerceIn(0, 600))
+                                                    }
+                                                    result = null
+                                                }
+                                            }
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) { Text("拖动裁切顶部", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall) }
+                                    Box(
+                                        Modifier.fillMaxWidth().height(28.dp)
+                                            .align(Alignment.BottomCenter)
+                                            .offset { IntOffset(0, -(bottomFraction * 280.dp.toPx()).roundToInt()) }
+                                            .pointerInput(index, crop.bottom, busy) {
+                                                if (!busy) detectDragGestures { change, dragAmount ->
+                                                    change.consume()
+                                                    val delta = (-dragAmount.y / size.height * maxCrop).roundToInt()
+                                                    manualCrops = manualCrops.toMutableList().also {
+                                                        it[index] = crop.copy(bottom = (crop.bottom + delta).coerceIn(0, 600))
+                                                    }
+                                                    result = null
+                                                }
+                                            }
+                                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.85f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) { Text("拖动裁切底部", color = MaterialTheme.colorScheme.onTertiary, style = MaterialTheme.typography.labelSmall) }
+                                }
+                            }
+                            Text("顶部裁切：${crop.top}px", style = MaterialTheme.typography.labelMedium)
+                            Slider(value = crop.top.toFloat(), onValueChange = { value ->
+                                manualCrops = manualCrops.toMutableList().also { it[index] = crop.copy(top = value.toInt()) }
+                                result = null
+                            }, valueRange = 0f..600f, steps = 59, enabled = !busy)
+                            Text("底部裁切：${crop.bottom}px", style = MaterialTheme.typography.labelMedium)
+                            Slider(value = crop.bottom.toFloat(), onValueChange = { value ->
+                                manualCrops = manualCrops.toMutableList().also { it[index] = crop.copy(bottom = value.toInt()) }
+                                result = null
+                            }, valueRange = 0f..600f, steps = 59, enabled = !busy)
                         }
                     }
                 }
