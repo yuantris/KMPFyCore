@@ -49,7 +49,7 @@ fun CorePlaygroundContent() {
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp)
-                .padding(top = 42.dp, bottom = 82.dp)
+                .padding(top = 42.dp)
         ) {
             Text("Core RS", style = MaterialTheme.typography.headlineMedium)
             Text(

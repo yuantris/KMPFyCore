@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -85,9 +86,9 @@ actual fun BackdropDemoScaffold(
             backdrop,
             Modifier
                 .padding(16f.dp)
-                .navigationBarsPadding()
-                .height(56f.dp)
-                .align(Alignment.BottomCenter),
+                .systemBarsPadding()
+                .height(42f.dp)
+                .align(Alignment.TopEnd),
             tint = Color(0xFF0088FF)
         ) {
             BasicText(
