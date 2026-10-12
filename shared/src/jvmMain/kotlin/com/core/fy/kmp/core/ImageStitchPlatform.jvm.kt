@@ -63,4 +63,4 @@ actual fun ImageStitchPreview(path: String, modifier: Modifier) {
 
 @Composable
 actual fun defaultStitchOutputPath(): String =
-    remember { File(System.getProperty("java.io.tmpdir"), "fycore/stitched.png").absolutePath }
+    remember { File(System.getProperty("java.io.tmpdir"), "stitched.png").absolutePath }
