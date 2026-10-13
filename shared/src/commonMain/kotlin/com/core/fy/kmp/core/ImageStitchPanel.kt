@@ -25,11 +25,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import kotlin.math.roundToInt
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.SwipeVertical
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.unit.dp
 import com.core.fy.kmp.components.LiquidButton
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -241,7 +236,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         ) {
-                                            Icon(if (seamIndex in confirmedSeams) Icons.Default.CheckCircle else Icons.Default.Tune, null, Modifier.size(15.dp), tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+                                            Text(if (seamIndex in confirmedSeams) "✓" else "✣", style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
                                             Text("接缝 ${seamIndex + 1}", style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                                         }
                                     }
@@ -266,7 +261,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                     Text("接缝 ${(active ?: 0) + 1} · 精细调整", style = MaterialTheme.typography.titleMedium)
                                     Text("先选移动方向，再在对应图片区域上下拖动。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Icon(Icons.Default.SwipeVertical, null, tint = MaterialTheme.colorScheme.primary)
+                                Text("↕", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(selected = movingLayer == "top", onClick = { movingLayer = "top" }, label = { Text("移动上图") }, modifier = Modifier.weight(1f))
@@ -280,7 +275,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                         selectedSeam = (0 until paths.size - 1).firstOrNull { it !in confirmedSeams }
                                     },
                                     enabled = !busy && active != null,
-                                ) { Icon(Icons.Default.Check, contentDescription = "确认当前接缝") }
+                                ) { Text("✓", style = MaterialTheme.typography.titleLarge) }
                             }
                         }
                     }
@@ -302,7 +297,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                             },
                             enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy,
                             modifier = Modifier.weight(1.4f),
-                        ) { Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "正在生成…" else "确认并导出") }
+                        ) { Text("✓"); Spacer(Modifier.width(8.dp)); Text(if (busy) "正在生成…" else "确认并导出") }
                     }
                 }
             }
