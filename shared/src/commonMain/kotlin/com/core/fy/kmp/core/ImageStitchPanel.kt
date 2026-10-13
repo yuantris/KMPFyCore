@@ -150,7 +150,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         TextButton(enabled = !busy, onClick = {
                             paths = paths.toMutableList().also { it.removeAt(index) }
                             manualCrops = manualCrops.filterIndexed { i, _ -> i != index }
-                            imageOffsets = List((paths.size - 1).coerceAtLeast(0)) { 0 }
+                            imageOffsets = List(paths.size) { 0 }
                             seamOffsets = List((paths.size - 1).coerceAtLeast(0)) { 0 }
                             confirmedSeams = emptySet()
                             selectedSeam = null
