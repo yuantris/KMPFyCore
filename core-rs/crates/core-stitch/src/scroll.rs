@@ -82,37 +82,40 @@ pub fn stitch_scroll(
         confidences.push(confidence);
     }
 
-    let spacing = 0u64;
-    let mut y_positions = Vec::with_capacity(normalized.len());
-    let mut y = 0u64;
+    // First compute the automatic layout, then apply each image's translation
+    // independently. Normalizing by the minimum keeps all translated pixels on-canvas.
+    let mut base_positions = Vec::with_capacity(normalized.len());
+    let mut base_y = 0i64;
     for (index, image) in normalized.iter().enumerate() {
-        y_positions.push(y);
+        base_positions.push(base_y);
         if index + 1 < normalized.len() {
-            let overlap = u64::from(overlaps[index]);
             let automatic_step = i64::from(image.height().saturating_sub(overlaps[index]));
-            let manual_offset = i64::from(config.seam_offsets.get(index).copied().unwrap_or(0));
-            let current_image_offset = i64::from(config.image_offsets.get(index).copied().unwrap_or(0));
-            let next_image_offset = i64::from(config.image_offsets.get(index + 1).copied().unwrap_or(0));
-            let image_translation_delta = next_image_offset - current_image_offset;
-            let adjusted_step = (automatic_step + manual_offset + image_translation_delta).max(1) as u64;
-            y = y.checked_add(adjusted_step)
-                .and_then(|v| v.checked_add(spacing))
+            let seam_delta = i64::from(config.seam_offsets.get(index).copied().unwrap_or(0));
+            base_y = base_y.checked_add((automatic_step + seam_delta).max(1))
                 .ok_or(StitchError::OutputTooLarge)?;
         }
     }
+    let mut y_positions: Vec<i64> = base_positions.iter().enumerate()
+        .map(|(index, base)| base.saturating_add(i64::from(config.image_offsets.get(index).copied().unwrap_or(0))))
+        .collect();
+    let min_y = y_positions.iter().copied().min().unwrap_or(0);
+    for position in &mut y_positions {
+        *position = position.saturating_sub(min_y);
+    }
 
     let width = u64::from(target_width);
-    let last_index = normalized.len().saturating_sub(1);
-    let last_image = normalized.last().ok_or(StitchError::EmptyInput)?;
-    let last_crop = if last_index == 0 {
-        0
-    } else {
-        (i64::from(overlaps[last_index - 1])
-            + i64::from(config.seam_offsets.get(last_index - 1).copied().unwrap_or(0)))
-            .clamp(0, i64::from(last_image.height().saturating_sub(1))) as u32
-    };
-    let height = y.checked_add(u64::from(last_image.height().saturating_sub(last_crop)))
-        .ok_or(StitchError::OutputTooLarge)?;
+    let mut height = 1u64;
+    for (index, image) in normalized.iter().enumerate() {
+        let crop_y = if index == 0 { 0 } else {
+            (i64::from(overlaps[index - 1])
+                + i64::from(config.seam_offsets.get(index - 1).copied().unwrap_or(0)))
+                .clamp(0, i64::from(image.height().saturating_sub(1))) as u32
+        };
+        let bottom = u64::try_from(y_positions[index]).unwrap_or(0)
+            .checked_add(u64::from(image.height().saturating_sub(crop_y)))
+            .ok_or(StitchError::OutputTooLarge)?;
+        height = height.max(bottom);
+    }
     let (canvas_width, canvas_height, scale) = bounded_dimensions(width, height, config)?;
     let mut canvas = RgbaImage::from_pixel(
         canvas_width,
@@ -134,7 +137,7 @@ pub fn stitch_scroll(
         };
         let source_height = image.height().saturating_sub(crop_y);
         let remaining = (canvas_height as f64 / scale).ceil() as u64;
-        let y_source = y_positions[index];
+        let y_source = u64::try_from(y_positions[index]).unwrap_or(0);
         let visible_height = u64::from(source_height).min(remaining.saturating_sub(y_source));
         if visible_height > 0 {
             let crop = imageops::crop_imm(image, 0, crop_y, image.width(), visible_height as u32).to_image();
