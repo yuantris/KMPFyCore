@@ -79,11 +79,13 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         seamOffsets = List((paths + selected).distinct().size - 1) { 0 }
                         previewPath = null
                         calibrating = false
+                        selectedSeam = null
+                        confirmedSeams = emptySet()
                         result = null
                         message = "已添加 ${selected.size} 张图片"
                     }
                     LiquidButton(
-                        onClick = { paths = emptyList(); manualCrops = emptyList(); seamOffsets = emptyList(); previewPath = null; calibrating = false; result = null; message = null },
+                        onClick = { paths = emptyList(); manualCrops = emptyList(); seamOffsets = emptyList(); previewPath = null; calibrating = false; selectedSeam = null; confirmedSeams = emptySet(); result = null; message = null },
                         backdrop = backdrop,
                     ) { Text("清空") }
                     Spacer(Modifier.weight(1f))
@@ -271,8 +273,9 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                 Text("拖动长图中接缝对应的一侧；松手后自动刷新预览。", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FilledIconButton(
                                     onClick = {
-                                        active?.let { confirmedSeams = confirmedSeams + it }
-                                        selectedSeam = (0 until paths.size - 1).firstOrNull { it !in confirmedSeams }
+                                        val updatedConfirmed = active?.let { confirmedSeams + it } ?: confirmedSeams
+                                        confirmedSeams = updatedConfirmed
+                                        selectedSeam = (0 until paths.size - 1).firstOrNull { it !in updatedConfirmed }
                                     },
                                     enabled = !busy && active != null,
                                 ) { Text("✓", style = MaterialTheme.typography.titleLarge) }
@@ -317,6 +320,8 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                             manualCrops = List(paths.size) { ImageStitchCrop() }
                             seamOffsets = List(paths.size - 1) { 0 }
                             calibrating = true
+                            selectedSeam = 0
+                            confirmedSeams = emptySet()
                             result = null
                             previewPath = "${outputPath}.preview.png"
                             message = "正在生成自动拼接预览…"
