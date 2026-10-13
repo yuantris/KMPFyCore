@@ -91,7 +91,10 @@ pub fn stitch_scroll(
             let overlap = u64::from(overlaps[index]);
             let automatic_step = i64::from(image.height().saturating_sub(overlaps[index]));
             let manual_offset = i64::from(config.seam_offsets.get(index).copied().unwrap_or(0));
-            let adjusted_step = (automatic_step + manual_offset).max(1) as u64;
+            let current_image_offset = i64::from(config.image_offsets.get(index).copied().unwrap_or(0));
+            let next_image_offset = i64::from(config.image_offsets.get(index + 1).copied().unwrap_or(0));
+            let image_translation_delta = next_image_offset - current_image_offset;
+            let adjusted_step = (automatic_step + manual_offset + image_translation_delta).max(1) as u64;
             y = y.checked_add(adjusted_step)
                 .and_then(|v| v.checked_add(spacing))
                 .ok_or(StitchError::OutputTooLarge)?;
