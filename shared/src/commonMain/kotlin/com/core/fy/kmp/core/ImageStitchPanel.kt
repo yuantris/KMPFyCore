@@ -60,6 +60,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
     var confirmedSeams by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var manualCrops by remember { mutableStateOf<List<ImageStitchCrop>>(emptyList()) }
     var seamOffsets by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var imageOffsets by remember { mutableStateOf<List<Int>>(emptyList()) }
     var previewPath by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<ImageStitchResult?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -83,7 +84,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                     ImageStitchPicker { selected ->
                         paths = (paths + selected).distinct()
                         manualCrops = List((paths + selected).distinct().size) { ImageStitchCrop() }
-                        seamOffsets = List((paths + selected).distinct().size - 1) { 0 }
+                        seamOffsets = List((paths + selected).distinct().size - 1) { 0 }; imageOffsets = List((paths + selected).distinct().size) { 0 }
                         previewPath = null
                         calibrating = false
                         selectedSeam = null
@@ -92,7 +93,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         message = "已添加 ${selected.size} 张图片"
                     }
                     LiquidButton(
-                        onClick = { paths = emptyList(); manualCrops = emptyList(); seamOffsets = emptyList(); previewPath = null; calibrating = false; selectedSeam = null; confirmedSeams = emptySet(); result = null; message = null },
+                        onClick = { paths = emptyList(); manualCrops = emptyList(); seamOffsets = emptyList(); imageOffsets = emptyList(); previewPath = null; calibrating = false; selectedSeam = null; confirmedSeams = emptySet(); result = null; message = null },
                         backdrop = backdrop,
                     ) { Text("清空") }
                     Spacer(Modifier.weight(1f))
@@ -233,12 +234,13 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                                     onDragEnd = {
                                                         val delta = (drag * stitched.height / imageHeight.toPx()).roundToInt() * if (movingLayer == "top") -1 else 1
                                                         if (delta != 0 && !busy) {
-                                                            val next = seamOffsets.toMutableList()
-                                                            if (active in next.indices) next[active] = (next[active] + delta).coerceIn(-600, 600)
-                                                            seamOffsets = next
+                                                            val next = imageOffsets.toMutableList().ifEmpty { MutableList(paths.size) { 0 } }
+                                                            val targetImage = if (movingLayer == "top") active else active + 1
+                                                            if (targetImage in next.indices) next[targetImage] = (next[targetImage] + delta).coerceIn(-600, 600)
+                                                            imageOffsets = next
                                                             busy = true
                                                             scope.launch {
-                                                                val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = next)
+                                                                val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets, imageOffsets = next)
                                                                 runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, preview, config) } }
                                                                     .onSuccess { result = it; message = "接缝已更新，可以继续微调" }
                                                                     .onFailure { message = it.message ?: "预览更新失败" }
@@ -322,7 +324,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                             onClick = {
                                 busy = true
                                 val selectedPaths = paths.toList()
-                                val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
+                                val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets, imageOffsets = imageOffsets)
                                 scope.launch {
                                     runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, outputPath, config) } }
                                         .onSuccess { result = it; calibrating = false; selectedSeam = null; message = "已导出长图 · ${it.width} × ${it.height}" }
@@ -351,6 +353,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         onClick = {
                             manualCrops = List(paths.size) { ImageStitchCrop() }
                             seamOffsets = List(paths.size - 1) { 0 }
+                            imageOffsets = List(paths.size) { 0 }
                             calibrating = true
                             selectedSeam = 0
                             confirmedSeams = emptySet()
