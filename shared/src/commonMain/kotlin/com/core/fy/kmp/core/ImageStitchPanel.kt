@@ -132,6 +132,10 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                     list.add(index - 1, item)
                                 }
                                 manualCrops = List(paths.size) { ImageStitchCrop() }
+                                imageOffsets = List(paths.size) { 0 }
+                                seamOffsets = List((paths.size - 1).coerceAtLeast(0)) { 0 }
+                                confirmedSeams = emptySet()
+                                selectedSeam = null
                                 result = null
                             }) { Text("↑") }
                             TextButton(enabled = index < paths.lastIndex && !busy, onClick = {
@@ -146,6 +150,10 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                         TextButton(enabled = !busy, onClick = {
                             paths = paths.toMutableList().also { it.removeAt(index) }
                             manualCrops = manualCrops.filterIndexed { i, _ -> i != index }
+                            imageOffsets = List((paths.size - 1).coerceAtLeast(0)) { 0 }
+                            seamOffsets = List((paths.size - 1).coerceAtLeast(0)) { 0 }
+                            confirmedSeams = emptySet()
+                            selectedSeam = null
                             result = null
                         }) { Text("移除") }
                     }
@@ -232,7 +240,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                                 detectDragGestures(
                                                     onDragStart = { drag = 0f },
                                                     onDragEnd = {
-                                                        val delta = (drag * stitched.height / imageHeight.toPx()).roundToInt() * if (movingLayer == "top") -1 else 1
+                                                        val delta = (drag * stitched.height / imageHeight.toPx()).roundToInt()
                                                         if (delta != 0 && !busy) {
                                                             val next = imageOffsets.toMutableList().ifEmpty { MutableList(paths.size) { 0 } }
                                                             val targetImage = if (movingLayer == "top") active else active + 1
@@ -295,7 +303,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text("接缝 ${(active ?: 0) + 1} · 精细调整", style = MaterialTheme.typography.titleMedium)
-                                    Text("先选移动方向，再在对应图片区域上下拖动。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("拖动哪张图，就只调整哪张图的位置；接缝裁切保持独立。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text("↕", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
                             }
