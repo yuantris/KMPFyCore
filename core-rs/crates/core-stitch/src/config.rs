@@ -34,6 +34,9 @@ pub struct StitchConfig {
     pub manual_crops: Vec<[u32; 2]>,
     /// Signed pixel offset applied to each seam; positive moves the next image down.
     pub seam_offsets: Vec<i32>,
+    /// Per-image vertical translation in output pixels, independent of overlap cropping.
+    #[serde(default)]
+    pub image_offsets: Vec<i32>,
     pub blend: bool,
     pub output_format: String,
     /// Grid columns; 0 selects a near-square grid.
@@ -58,6 +61,7 @@ impl Default for StitchConfig {
             fixed_footer_height: 0,
             manual_crops: Vec::new(),
             seam_offsets: Vec::new(),
+            image_offsets: Vec::new(),
             blend: true,
             output_format: "png".into(),
             columns: 0,
