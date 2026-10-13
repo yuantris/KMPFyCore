@@ -34,6 +34,8 @@ data class ImageStitchConfig(
     val manualCrops: List<ImageStitchCrop> = emptyList(),
     /** Signed pixel adjustment for each seam; positive moves the lower image down. */
     val seamOffsets: List<Int> = emptyList(),
+    /** Independent vertical translation per source image; does not alter seam crop matching. */
+    val imageOffsets: List<Int> = emptyList(),
     val blend: Boolean = true,
     val outputFormat: String = "png",
     val columns: Int = 0,
