@@ -20,6 +20,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -191,6 +195,31 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                                 val active = selectedSeam
                                 if (active != null && active < stitched.segments.size - 1) {
                                     val seamY = (imageHeight * stitched.segments[active + 1].y.toFloat() / stitched.height.coerceAtLeast(1)).coerceIn(8.dp, imageHeight - 8.dp)
+                                    val hintMotion = rememberInfiniteTransition(label = "seamDragHint")
+                                    val hintShift by hintMotion.animateFloat(
+                                        initialValue = 0f,
+                                        targetValue = 7f,
+                                        animationSpec = infiniteRepeatable(tween(620), repeatMode = RepeatMode.Reverse),
+                                        label = "seamDragHintOffset",
+                                    )
+                                    Column(
+                                        Modifier.align(Alignment.TopCenter).offset(y = (seamY - 58.dp + hintShift.dp).coerceAtLeast(0.dp))
+                                            .clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+                                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        Text("↑", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                        Text(if (movingLayer == "top") "拖动上图" else "上图", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                    Column(
+                                        Modifier.align(Alignment.TopCenter).offset(y = (seamY + 12.dp - hintShift.dp).coerceAtMost(imageHeight - 50.dp))
+                                            .clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+                                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        Text(if (movingLayer == "bottom") "拖动下图" else "下图", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                                        Text("↓", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                    }
                                     val topSelected = movingLayer == "top"
                                     val regionY = if (topSelected) 0.dp else seamY
                                     val regionHeight = (if (topSelected) seamY else imageHeight - seamY).coerceAtLeast(1.dp)
