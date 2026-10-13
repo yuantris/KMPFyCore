@@ -2,6 +2,7 @@ package com.core.fy.kmp.core
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,7 +16,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import kotlin.math.roundToInt
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.SwipeVertical
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.unit.dp
 import com.core.fy.kmp.components.LiquidButton
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -41,7 +55,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
     var modeMenu by remember { mutableStateOf(false) }
     var autoFixedBars by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
-    var calibrating by remember { mutableStateOf(false) }
+    var calibrating by remember { mutableStateOf(false) }\n    var selectedSeam by remember { mutableStateOf<Int?>(null) }\n    var movingLayer by remember { mutableStateOf("bottom") }\n    var confirmedSeams by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var manualCrops by remember { mutableStateOf<List<ImageStitchCrop>>(emptyList()) }
     var seamOffsets by remember { mutableStateOf<List<Int>>(emptyList()) }
     var previewPath by remember { mutableStateOf<String?>(null) }
@@ -154,92 +168,141 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
             }
             if (calibrating) {
                 item {
-                    HorizontalDivider()
-                    Text("接缝校准", style = MaterialTheme.typography.titleMedium)
-                    Text("长图上的横线就是接缝。直接上下拖动横线，调整下方截图的位置；松开后自动更新连续长图预览。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("校准拼接", style = MaterialTheme.typography.headlineSmall)
+                        Text("点击长图中的接缝，再选择移动上方或下方图片。每条接缝单独确认。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                Text("${confirmedSeams.size} / ${paths.size - 1} 已确认", Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            TextButton(onClick = { selectedSeam = (0 until paths.size - 1).firstOrNull { it !in confirmedSeams } }) { Text("下一条接缝") }
+                        }
+                    }
                 }
                 item {
                     val preview = previewPath
-                    if (preview != null) {
-                        val previewResult = result
-                        if (previewResult == null) {
-                            ImageStitchPreview(preview, Modifier.fillMaxWidth().heightIn(max = 680.dp).clip(RoundedCornerShape(12.dp)))
-                        } else {
-                            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                val imageHeight = (maxWidth * previewResult.height.toFloat() / previewResult.width.coerceAtLeast(1)).coerceAtMost(680.dp)
-                                Box(Modifier.fillMaxWidth().height(imageHeight).clip(RoundedCornerShape(12.dp))) {
-                                    ImageStitchPreview(preview, Modifier.fillMaxSize())
-                                    previewResult.segments.drop(1).forEachIndexed { seamIndex, segment ->
-                                        var dragDelta by remember(seamIndex) { mutableStateOf(0f) }
-                                        val seamY = (imageHeight * segment.y.toFloat() / previewResult.height.coerceAtLeast(1)).coerceIn(0.dp, imageHeight)
-                                        Box(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .offset(y = seamY - 10.dp)
-                                                .height(20.dp)
-                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.24f))
-                                                .pointerInput(seamIndex, busy, imageHeight, previewResult.height) {
-                                                    detectDragGestures(
-                                                        onDragStart = { dragDelta = 0f },
-                                                        onDragEnd = {
-                                                            val pixelDelta = (dragDelta * previewResult.height / imageHeight.toPx()).roundToInt()
-                                                            if (pixelDelta != 0 && !busy) {
-                                                                val nextOffsets = seamOffsets.toMutableList().also {
-                                                                    it[seamIndex] = (it[seamIndex] + pixelDelta).coerceIn(-300, 300)
-                                                                }
-                                                                seamOffsets = nextOffsets
-                                                                result = null
-                                                                busy = true
-                                                                scope.launch {
-                                                                    val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = nextOffsets)
-                                                                    runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, preview, config) } }
-                                                                        .onSuccess { result = it; previewPath = preview; message = "接缝已更新，可继续拖动校准" }
-                                                                        .onFailure { message = it.message ?: "预览生成失败" }
-                                                                    busy = false
-                                                                }
+                    val stitched = result
+                    if (preview != null && stitched != null) {
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val imageHeight = (maxWidth * stitched.height.toFloat() / stitched.width.coerceAtLeast(1)).coerceAtMost(620.dp)
+                            Box(Modifier.fillMaxWidth().height(imageHeight).clip(RoundedCornerShape(24.dp))) {
+                                ImageStitchPreview(preview, Modifier.fillMaxSize())
+                                val active = selectedSeam
+                                if (active != null && active < stitched.segments.size - 1) {
+                                    val seamY = (imageHeight * stitched.segments[active + 1].y.toFloat() / stitched.height.coerceAtLeast(1)).coerceIn(8.dp, imageHeight - 8.dp)
+                                    val topSelected = movingLayer == "top"
+                                    val regionY = if (topSelected) 0.dp else seamY
+                                    val regionHeight = (if (topSelected) seamY else imageHeight - seamY).coerceAtLeast(1.dp)
+                                    Box(
+                                        Modifier.fillMaxWidth().offset(y = regionY).height(regionHeight)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.055f))
+                                            .pointerInput(active, movingLayer, busy, imageHeight, stitched.height) {
+                                                var drag = 0f
+                                                detectDragGestures(
+                                                    onDragStart = { drag = 0f },
+                                                    onDragEnd = {
+                                                        val delta = (drag * stitched.height / imageHeight.toPx()).roundToInt() * if (movingLayer == "top") -1 else 1
+                                                        if (delta != 0 && !busy) {
+                                                            val next = seamOffsets.toMutableList()
+                                                            if (active in next.indices) next[active] = (next[active] + delta).coerceIn(-600, 600)
+                                                            seamOffsets = next
+                                                            busy = true
+                                                            scope.launch {
+                                                                val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = next)
+                                                                runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(paths, preview, config) } }
+                                                                    .onSuccess { result = it; message = "接缝已更新，可以继续微调" }
+                                                                    .onFailure { message = it.message ?: "预览更新失败" }
+                                                                busy = false
                                                             }
-                                                        },
-                                                        onDrag = { change, amount ->
-                                                            change.consume()
-                                                            dragDelta += amount.y
-                                                        },
-                                                    )
-                                                },
-                                            contentAlignment = Alignment.Center,
+                                                        }
+                                                    },
+                                                    onDrag = { change, amount -> change.consume(); drag += amount.y },
+                                                )
+                                            },
+                                    )
+                                }
+                                stitched.segments.drop(1).forEachIndexed { seamIndex, segment ->
+                                    val y = (imageHeight * segment.y.toFloat() / stitched.height.coerceAtLeast(1)).coerceIn(10.dp, imageHeight - 10.dp)
+                                    val selected = selectedSeam == seamIndex
+                                    val scale by animateFloatAsState(if (selected) 1f else 0.84f, animationSpec = spring(dampingRatio = 0.68f), label = "seamHandle")
+                                    Column(
+                                        Modifier.fillMaxWidth().offset(y = y - 24.dp).height(48.dp)
+                                            .clickable(enabled = !busy) { selectedSeam = seamIndex },
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                    ) {
+                                        Box(Modifier.fillMaxWidth().height(if (selected) 2.dp else 1.dp).background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)))
+                                        Row(
+                                            Modifier.padding(top = 2.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+                                                .clip(RoundedCornerShape(50))
+                                                .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         ) {
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.primary,
-                                                shape = RoundedCornerShape(50),
-                                                modifier = Modifier.width(72.dp).height(4.dp),
-                                            ) {}
+                                            Icon(if (seamIndex in confirmedSeams) Icons.Default.CheckCircle else Icons.Default.Tune, null, Modifier.size(15.dp), tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+                                            Text("接缝 ${seamIndex + 1}", style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                                         }
                                     }
                                 }
                             }
                         }
                     } else {
-                        Surface(Modifier.fillMaxWidth().height(180.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Box(contentAlignment = Alignment.Center) { Text("正在生成自动拼接预览…") }
+                        Surface(Modifier.fillMaxWidth().height(180.dp), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                         }
                     }
                 }
                 item {
-                    Text("拖动长图上的横线即可移动接缝；偏移会自动应用到下方截图。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val active = selectedSeam
+                    AnimatedVisibility(visible = active != null, enter = fadeIn() + slideInVertically { it / 3 }, exit = fadeOut() + slideOutVertically { it / 4 }) {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("接缝 ${(active ?: 0) + 1} · 精细调整", style = MaterialTheme.typography.titleMedium)
+                                    Text("先选移动方向，再在对应图片区域上下拖动。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Icon(Icons.Default.SwipeVertical, null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = movingLayer == "top", onClick = { movingLayer = "top" }, label = { Text("移动上图") }, modifier = Modifier.weight(1f))
+                                FilterChip(selected = movingLayer == "bottom", onClick = { movingLayer = "bottom" }, label = { Text("移动下图") }, modifier = Modifier.weight(1f))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("拖动长图中接缝对应的一侧；松手后自动刷新预览。", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                FilledIconButton(
+                                    onClick = {
+                                        active?.let { confirmedSeams = confirmedSeams + it }
+                                        selectedSeam = (0 until paths.size - 1).firstOrNull { it !in confirmedSeams }
+                                    },
+                                    enabled = !busy && active != null,
+                                ) { Icon(Icons.Default.Check, contentDescription = "确认当前接缝") }
+                            }
+                        }
+                    }
                 }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { calibrating = false }, enabled = !busy) { Text("返回") }
-                        Button(enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy, onClick = {
-                            busy = true
-                            val selectedPaths = paths.toList()
-                            val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
-                            scope.launch {
-                                runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, outputPath, config) } }
-                                    .onSuccess { result = it; calibrating = false; message = "已生成最终图片：${it.width} × ${it.height}" }
-                                    .onFailure { message = it.message ?: "最终拼接失败" }
-                                busy = false
-                            }
-                        }) { Text(if (busy) "处理中…" else "确认并导出") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick = { calibrating = false; selectedSeam = null }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("退出校准") }
+                        Button(
+                            onClick = {
+                                busy = true
+                                val selectedPaths = paths.toList()
+                                val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars, manualCrops = manualCrops, seamOffsets = seamOffsets)
+                                scope.launch {
+                                    runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, outputPath, config) } }
+                                        .onSuccess { result = it; calibrating = false; selectedSeam = null; message = "已导出长图 · ${it.width} × ${it.height}" }
+                                        .onFailure { message = it.message ?: "导出失败" }
+                                    busy = false
+                                }
+                            },
+                            enabled = paths.size >= 2 && outputPath.isNotBlank() && !busy,
+                            modifier = Modifier.weight(1.4f),
+                        ) { Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "正在生成…" else "确认并导出") }
                     }
                 }
             }
@@ -268,7 +331,7 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
                             val config = ImageStitchConfig(mode = mode, autoDetectFixedBars = autoFixedBars)
                             scope.launch {
                                 runCatching { withContext(Dispatchers.IO) { CoreRsPlatform.stitchFiles(selectedPaths, previewOutput, config) } }
-                                    .onSuccess { result = it; message = "自动拼接预览已生成，直接拖动长图上的接缝线即可校准" }
+                                    .onSuccess { result = it; message = "预览已生成，点击接缝开始校准" }
                                     .onFailure { message = it.message ?: "自动拼接预览失败"; calibrating = false }
                                 busy = false
                             }
