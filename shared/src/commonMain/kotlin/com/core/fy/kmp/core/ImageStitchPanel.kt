@@ -50,7 +50,10 @@ fun ImageStitchPanel(backdrop: LayerBackdrop) {
     var modeMenu by remember { mutableStateOf(false) }
     var autoFixedBars by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
-    var calibrating by remember { mutableStateOf(false) }\n    var selectedSeam by remember { mutableStateOf<Int?>(null) }\n    var movingLayer by remember { mutableStateOf("bottom") }\n    var confirmedSeams by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var calibrating by remember { mutableStateOf(false) }
+    var selectedSeam by remember { mutableStateOf<Int?>(null) }
+    var movingLayer by remember { mutableStateOf("bottom") }
+    var confirmedSeams by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var manualCrops by remember { mutableStateOf<List<ImageStitchCrop>>(emptyList()) }
     var seamOffsets by remember { mutableStateOf<List<Int>>(emptyList()) }
     var previewPath by remember { mutableStateOf<String?>(null) }
