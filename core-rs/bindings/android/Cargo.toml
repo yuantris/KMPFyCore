@@ -10,6 +10,9 @@ crate-type = ["cdylib"]
 [dependencies]
 core-search.workspace = true
 core-math.workspace = true
+core-calc.workspace = true
+core-graph.workspace = true
 core-binary.workspace = true
+core-stitch.workspace = true
 jni.workspace = true
 serde_json.workspace = true
